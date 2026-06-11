@@ -1,5 +1,4 @@
 const TRACKER_PREFIX = "anya-tracker-";
-const DARK_MODE_KEY = "anya-tracker-dark-mode";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
 const THREE_HOURS_IN_SLOTS = 6;
@@ -12,10 +11,11 @@ const trackerGrid = document.getElementById("trackerGrid");
 const milkTotal = document.getElementById("milkTotal");
 const peeTotal = document.getElementById("peeTotal");
 const poopTotal = document.getElementById("poopTotal");
+const notesTotal = document.getElementById("notesTotal");
 const clearDayButton = document.getElementById("clearDay");
 const exportCsvButton = document.getElementById("exportCsv");
 const backupJsonButton = document.getElementById("backupJson");
-const darkModeToggle = document.getElementById("darkModeToggle");
+const settingsButton = document.getElementById("settingsButton");
 const feedingGapNotice = document.getElementById("feedingGapNotice");
 const activityModal = document.getElementById("activityModal");
 const modalTitle = document.getElementById("modalTitle");
@@ -50,11 +50,13 @@ function getStorageKey(date = selectedDate) {
 
 function formatDisplayDate(date) {
   return date.toLocaleDateString(undefined, {
-    weekday: "short",
     month: "short",
-    day: "numeric",
-    year: "numeric"
+    day: "numeric"
   });
+}
+
+function isToday(date) {
+  return getDateKey(date) === getDateKey(new Date());
 }
 
 function getSlotTime(index) {
@@ -90,7 +92,7 @@ function loadDay() {
     dayData = createEmptyDay();
   }
 
-  selectedDateText.textContent = formatDisplayDate(selectedDate);
+  selectedDateText.textContent = isToday(selectedDate) ? "Today" : formatDisplayDate(selectedDate);
   renderGrid();
   updateSummary();
 }
@@ -100,22 +102,24 @@ function saveDay() {
   updateSummary();
 }
 
-function getActivityIcons(slot) {
-  const icons = [];
-
+function getPrimaryActivity(slot) {
   if (slot.milk) {
-    icons.push("🍼");
+    return { icon: "🍼", className: "milk-icon", label: "milk" };
   }
 
   if (slot.pee) {
-    icons.push("💧");
+    return { icon: "💧", className: "pee-icon", label: "pee" };
   }
 
   if (slot.poop) {
-    icons.push("💩");
+    return { icon: "🩲", className: "poop-icon", label: "poop" };
   }
 
-  return icons;
+  if (slot.notes) {
+    return { icon: "💬", className: "notes-icon", label: "note" };
+  }
+
+  return null;
 }
 
 function getSlotSummary(slot) {
@@ -145,8 +149,8 @@ function renderGrid() {
 
   dayData.forEach((slot, index) => {
     const cell = document.createElement("button");
-    const icons = getActivityIcons(slot);
-    const hasEntry = icons.length > 0 || Boolean(slot.notes);
+    const activity = getPrimaryActivity(slot);
+    const hasEntry = Boolean(activity);
 
     cell.type = "button";
     cell.className = "time-cell";
@@ -159,8 +163,8 @@ function renderGrid() {
     time.textContent = getSlotTime(index);
 
     const iconStrip = document.createElement("span");
-    iconStrip.className = "activity-icons";
-    iconStrip.textContent = icons.length ? icons.join("") : "+";
+    iconStrip.className = activity ? `activity-icons ${activity.className}` : "activity-icons is-empty";
+    iconStrip.textContent = activity ? activity.icon : "+";
     iconStrip.setAttribute("aria-hidden", "true");
 
     if (slot.notes) {
@@ -234,6 +238,7 @@ function updateSummary() {
   milkTotal.textContent = dayData.filter((slot) => slot.milk).length;
   peeTotal.textContent = dayData.filter((slot) => slot.pee).length;
   poopTotal.textContent = dayData.filter((slot) => slot.poop).length;
+  notesTotal.textContent = dayData.filter((slot) => slot.notes).length;
 }
 
 function highlightFeedingGaps() {
@@ -255,9 +260,7 @@ function highlightFeedingGaps() {
     }
   }
 
-  if (milkIndexes.length === 0) {
-    warningRanges.push({ start: 0, end: TOTAL_SLOTS - 1 });
-  } else {
+  if (milkIndexes.length > 0) {
     const firstMilk = milkIndexes[0];
     const lastMilk = milkIndexes[milkIndexes.length - 1];
 
@@ -365,17 +368,8 @@ function backupJson() {
   );
 }
 
-function applyDarkModePreference() {
-  const isDark = localStorage.getItem(DARK_MODE_KEY) === "true";
-  document.body.classList.toggle("dark-mode", isDark);
-  darkModeToggle.textContent = isDark ? "☀️" : "🌙";
-  darkModeToggle.setAttribute("aria-pressed", String(isDark));
-}
-
-function toggleDarkMode() {
-  const nextValue = !document.body.classList.contains("dark-mode");
-  localStorage.setItem(DARK_MODE_KEY, String(nextValue));
-  applyDarkModePreference();
+function openSettings() {
+  window.alert("Settings are coming soon. Use the action buttons below the grid to export or clear tracker data.");
 }
 
 activityChoiceButtons.forEach((button) => {
@@ -402,7 +396,6 @@ nextDayButton.addEventListener("click", () => changeDay(1));
 clearDayButton.addEventListener("click", clearDay);
 exportCsvButton.addEventListener("click", exportCsv);
 backupJsonButton.addEventListener("click", backupJson);
-darkModeToggle.addEventListener("click", toggleDarkMode);
+settingsButton.addEventListener("click", openSettings);
 
-applyDarkModePreference();
 loadDay();
