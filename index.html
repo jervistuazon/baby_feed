@@ -53,15 +53,49 @@
     </section>
 
     <main>
-      <div class="grid-heading" aria-hidden="true">
-        <span>Time</span>
-        <span>Milk</span>
-        <span>Pee</span>
-        <span>Poop</span>
-        <span>Notes</span>
+      <div class="timeline-intro">
+        <div>
+          <p class="eyebrow">Visual day grid</p>
+          <h2>Tap a time block</h2>
+        </div>
+        <div class="legend" aria-label="Activity legend">
+          <span><strong>🍼</strong> Feed</span>
+          <span><strong>💧</strong> Pee</span>
+          <span><strong>💩</strong> Poop</span>
+        </div>
       </div>
       <div id="trackerGrid" class="tracker-grid" aria-label="30 minute baby care tracker"></div>
     </main>
+  </div>
+
+  <div id="activityModal" class="modal-backdrop" hidden>
+    <section class="activity-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <div>
+          <span class="date-label">Choose entry</span>
+          <h2 id="modalTitle">12:30 PM</h2>
+        </div>
+        <button id="closeModal" class="close-button" type="button" aria-label="Close popup">×</button>
+      </div>
+
+      <div class="activity-options" aria-label="Activity choices">
+        <button class="activity-choice milk-choice" type="button" data-type="milk" aria-pressed="false">
+          <span class="activity-icon">🍼</span>
+          <span>Feed</span>
+        </button>
+        <button class="activity-choice pee-choice" type="button" data-type="pee" aria-pressed="false">
+          <span class="activity-icon">💧</span>
+          <span>Pee</span>
+        </button>
+        <button class="activity-choice poop-choice" type="button" data-type="poop" aria-pressed="false">
+          <span class="activity-icon">💩</span>
+          <span>Poop</span>
+        </button>
+      </div>
+
+      <label class="notes-label" for="modalNotes">Optional note</label>
+      <input id="modalNotes" class="notes-input" type="text" maxlength="80" placeholder="Short note">
+    </section>
   </div>
 
   <script src="script.js"></script>
