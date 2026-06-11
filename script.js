@@ -17,9 +17,15 @@ const exportCsvButton = document.getElementById("exportCsv");
 const backupJsonButton = document.getElementById("backupJson");
 const darkModeToggle = document.getElementById("darkModeToggle");
 const feedingGapNotice = document.getElementById("feedingGapNotice");
+const activityModal = document.getElementById("activityModal");
+const modalTitle = document.getElementById("modalTitle");
+const closeModalButton = document.getElementById("closeModal");
+const activityChoiceButtons = document.querySelectorAll(".activity-choice");
+const modalNotes = document.getElementById("modalNotes");
 
 let selectedDate = new Date();
 let dayData = createEmptyDay();
+let activeSlotIndex = null;
 
 function createEmptyDay() {
   return Array.from({ length: TOTAL_SLOTS }, () => ({
@@ -94,56 +100,134 @@ function saveDay() {
   updateSummary();
 }
 
+function getActivityIcons(slot) {
+  const icons = [];
+
+  if (slot.milk) {
+    icons.push("🍼");
+  }
+
+  if (slot.pee) {
+    icons.push("💧");
+  }
+
+  if (slot.poop) {
+    icons.push("💩");
+  }
+
+  return icons;
+}
+
+function getSlotSummary(slot) {
+  const labels = [];
+
+  if (slot.milk) {
+    labels.push("feed");
+  }
+
+  if (slot.pee) {
+    labels.push("pee");
+  }
+
+  if (slot.poop) {
+    labels.push("poop");
+  }
+
+  if (slot.notes) {
+    labels.push(`note: ${slot.notes}`);
+  }
+
+  return labels.length ? labels.join(", ") : "no entries";
+}
+
 function renderGrid() {
   trackerGrid.innerHTML = "";
 
   dayData.forEach((slot, index) => {
-    const row = document.createElement("div");
-    row.className = "tracker-row";
-    row.dataset.index = index;
+    const cell = document.createElement("button");
+    const icons = getActivityIcons(slot);
+    const hasEntry = icons.length > 0 || Boolean(slot.notes);
 
-    const time = document.createElement("div");
+    cell.type = "button";
+    cell.className = "time-cell";
+    cell.dataset.index = index;
+    cell.dataset.hasEntry = String(hasEntry);
+    cell.setAttribute("aria-label", `${getSlotTime(index)}: ${getSlotSummary(slot)}. Tap to edit.`);
+
+    const time = document.createElement("span");
     time.className = "time-label";
     time.textContent = getSlotTime(index);
 
-    const milkButton = createToggleButton("milk", slot.milk, index);
-    const peeButton = createToggleButton("pee", slot.pee, index);
-    const poopButton = createToggleButton("poop", slot.poop, index);
+    const iconStrip = document.createElement("span");
+    iconStrip.className = "activity-icons";
+    iconStrip.textContent = icons.length ? icons.join("") : "+";
+    iconStrip.setAttribute("aria-hidden", "true");
 
-    const notesInput = document.createElement("input");
-    notesInput.className = "notes-input";
-    notesInput.type = "text";
-    notesInput.maxLength = 80;
-    notesInput.placeholder = "Short note";
-    notesInput.value = slot.notes;
-    notesInput.setAttribute("aria-label", `Notes for ${getSlotTime(index)}`);
-    notesInput.addEventListener("input", () => {
-      dayData[index].notes = notesInput.value;
-      saveDay();
-    });
+    if (slot.notes) {
+      const noteDot = document.createElement("span");
+      noteDot.className = "note-dot";
+      noteDot.textContent = "•";
+      noteDot.setAttribute("aria-hidden", "true");
+      iconStrip.appendChild(noteDot);
+    }
 
-    row.append(time, milkButton, peeButton, poopButton, notesInput);
-    trackerGrid.appendChild(row);
+    cell.append(time, iconStrip);
+    cell.addEventListener("click", () => openActivityModal(index));
+    trackerGrid.appendChild(cell);
   });
 
   highlightFeedingGaps();
 }
 
-function createToggleButton(type, isActive, index) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `pill-toggle ${type}`;
-  button.textContent = type.charAt(0).toUpperCase() + type.slice(1);
-  button.setAttribute("aria-pressed", String(isActive));
-  button.setAttribute("aria-label", `${button.textContent} at ${getSlotTime(index)}`);
-  button.addEventListener("click", () => {
-    dayData[index][type] = !dayData[index][type];
-    button.setAttribute("aria-pressed", String(dayData[index][type]));
-    saveDay();
-    highlightFeedingGaps();
-  });
+function syncModalState() {
+  if (activeSlotIndex === null) {
+    return;
+  }
 
-  return button;
+  const slot = dayData[activeSlotIndex];
+  modalTitle.textContent = getSlotTime(activeSlotIndex);
+  modalNotes.value = slot.notes;
+
+  activityChoiceButtons.forEach((button) => {
+    const type = button.dataset.type;
+    button.setAttribute("aria-pressed", String(slot[type]));
+  });
+}
+
+function openActivityModal(index) {
+  activeSlotIndex = index;
+  syncModalState();
+  activityModal.hidden = false;
+  document.body.classList.add("modal-open");
+  activityChoiceButtons[0]?.focus();
+}
+
+function closeActivityModal() {
+  activityModal.hidden = true;
+  document.body.classList.remove("modal-open");
+  activeSlotIndex = null;
+}
+
+function toggleActivity(type) {
+  if (activeSlotIndex === null) {
+    return;
+  }
+
+  dayData[activeSlotIndex][type] = !dayData[activeSlotIndex][type];
+  saveDay();
+  renderGrid();
+  syncModalState();
+}
+
+function updateModalNotes() {
+  if (activeSlotIndex === null) {
+    return;
+  }
+
+  dayData[activeSlotIndex].notes = modalNotes.value;
+  saveDay();
+  renderGrid();
+  syncModalState();
 }
 
 function updateSummary() {
@@ -153,8 +237,8 @@ function updateSummary() {
 }
 
 function highlightFeedingGaps() {
-  const rows = trackerGrid.querySelectorAll(".tracker-row");
-  rows.forEach((row) => row.classList.remove("warning-gap"));
+  const cells = trackerGrid.querySelectorAll(".time-cell");
+  cells.forEach((cell) => cell.classList.remove("warning-gap"));
 
   const milkIndexes = dayData
     .map((slot, index) => (slot.milk ? index : null))
@@ -188,13 +272,13 @@ function highlightFeedingGaps() {
 
   warningRanges.forEach(({ start, end }) => {
     for (let index = start; index <= end; index += 1) {
-      rows[index]?.classList.add("warning-gap");
+      cells[index]?.classList.add("warning-gap");
     }
   });
 
   if (warningRanges.length) {
     feedingGapNotice.hidden = false;
-    feedingGapNotice.textContent = "Milk gap warning: highlighted rows show stretches longer than 3 hours without a milk entry.";
+    feedingGapNotice.textContent = "Milk gap warning: highlighted time blocks show stretches longer than 3 hours without a milk entry.";
   } else {
     feedingGapNotice.hidden = true;
     feedingGapNotice.textContent = "";
@@ -293,6 +377,24 @@ function toggleDarkMode() {
   localStorage.setItem(DARK_MODE_KEY, String(nextValue));
   applyDarkModePreference();
 }
+
+activityChoiceButtons.forEach((button) => {
+  button.addEventListener("click", () => toggleActivity(button.dataset.type));
+});
+
+modalNotes.addEventListener("input", updateModalNotes);
+closeModalButton.addEventListener("click", closeActivityModal);
+activityModal.addEventListener("click", (event) => {
+  if (event.target === activityModal) {
+    closeActivityModal();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !activityModal.hidden) {
+    closeActivityModal();
+  }
+});
 
 previousDayButton.addEventListener("click", () => changeDay(-1));
 todayButton.addEventListener("click", goToToday);
