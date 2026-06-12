@@ -13,6 +13,8 @@ A simple mobile-first newborn care tracker built with plain HTML, CSS, and vanil
 
 No install step is required. Open `index.html` directly in a browser, or serve the folder locally:
 
+On Windows, double-click `run-localhost.bat` to start a local server and open the app at <http://localhost:4173>.
+
 ```bash
 python3 -m http.server 4173
 ```

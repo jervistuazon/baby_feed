@@ -2,6 +2,8 @@ const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
 const THREE_HOURS_IN_SLOTS = 6;
+const FEED_WINDOW_DELAY_SLOTS = 4;
+const FEED_WINDOW_DURATION_SLOTS = 2;
 
 const selectedDateText = document.getElementById("selectedDateText");
 const previousDayButton = document.getElementById("previousDay");
@@ -61,12 +63,19 @@ function isToday(date) {
 
 function getSlotTime(index) {
   const totalMinutes = index * SLOT_MINUTES;
-  const hours24 = Math.floor(totalMinutes / 60);
+  const hours24 = Math.floor(totalMinutes / 60) % 24;
   const minutes = totalMinutes % 60;
   const period = hours24 >= 12 ? "PM" : "AM";
   const hours12 = hours24 % 12 || 12;
 
   return `${hours12}:${pad(minutes)} ${period}`;
+}
+
+function getCurrentSlotIndex() {
+  const now = new Date();
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
+
+  return Math.min(TOTAL_SLOTS - 1, Math.floor(totalMinutes / SLOT_MINUTES));
 }
 
 function normalizeLoadedData(savedData) {
@@ -114,7 +123,7 @@ function getSlotActivities(slot) {
   }
 
   if (slot.poop) {
-    activities.push({ icon: "🩲", className: "poop-icon", label: "poop" });
+    activities.push({ icon: "💩", className: "poop-icon", label: "poop" });
   }
 
   if (slot.notes) {
@@ -144,6 +153,36 @@ function getSlotSummary(slot) {
   }
 
   return labels.length ? labels.join(", ") : "no entries";
+}
+
+function getMilkIndexes() {
+  return dayData
+    .map((slot, index) => (slot.milk ? index : null))
+    .filter((index) => index !== null);
+}
+
+function getNextFeedWindow() {
+  const milkIndexes = getMilkIndexes();
+
+  if (!milkIndexes.length) {
+    return null;
+  }
+
+  const currentSlotIndex = getCurrentSlotIndex();
+  const anchorIndex = isToday(selectedDate)
+    ? [...milkIndexes].reverse().find((index) => index <= currentSlotIndex) ?? milkIndexes[0]
+    : milkIndexes[milkIndexes.length - 1];
+  const start = anchorIndex + FEED_WINDOW_DELAY_SLOTS;
+
+  if (start >= TOTAL_SLOTS) {
+    return null;
+  }
+
+  return {
+    anchorIndex,
+    start,
+    end: Math.min(TOTAL_SLOTS - 1, start + FEED_WINDOW_DURATION_SLOTS - 1)
+  };
 }
 
 function renderGrid() {
@@ -247,11 +286,9 @@ function updateSummary() {
 
 function highlightFeedingGaps() {
   const cells = trackerGrid.querySelectorAll(".time-cell");
-  cells.forEach((cell) => cell.classList.remove("warning-gap"));
+  cells.forEach((cell) => cell.classList.remove("warning-gap", "next-feed-window"));
 
-  const milkIndexes = dayData
-    .map((slot, index) => (slot.milk ? index : null))
-    .filter((index) => index !== null);
+  const milkIndexes = getMilkIndexes();
 
   const warningRanges = [];
 
@@ -283,9 +320,25 @@ function highlightFeedingGaps() {
     }
   });
 
-  if (warningRanges.length) {
+  const nextFeedWindow = getNextFeedWindow();
+  const messages = [];
+
+  if (nextFeedWindow) {
+    for (let index = nextFeedWindow.start; index <= nextFeedWindow.end; index += 1) {
+      const cell = cells[index];
+
+      if (cell) {
+        cell.classList.add("next-feed-window");
+        cell.setAttribute("aria-label", `${cell.getAttribute("aria-label")} Suggested next feeding window.`);
+      }
+    }
+
+    messages.push(`Next feed focus: ${getSlotTime(nextFeedWindow.start)}-${getSlotTime(nextFeedWindow.end + 1)}`);
+  }
+
+  if (messages.length) {
     feedingGapNotice.hidden = false;
-    feedingGapNotice.textContent = "Milk gap warning: highlighted time blocks show stretches longer than 3 hours without a milk entry.";
+    feedingGapNotice.textContent = messages.join(" ");
   } else {
     feedingGapNotice.hidden = true;
     feedingGapNotice.textContent = "";

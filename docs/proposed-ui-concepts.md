@@ -2,6 +2,10 @@
 
 This document records the requested `gpt-image-2` prompt for a raster concept board covering three Anya Baby Tracker UI improvements. Binary generated image files are intentionally not committed to the repository.
 
+## Task summary
+
+The UI concept image request is documented as text only, including the three proposed concepts and the exact prompt used for generation. Generated raster mockups should be stored outside version control, so no binary image files are committed with this task.
+
 ## Concepts included
 
 1. **Scan-friendly timeline** — grouped day sections, last-milk status, feed-soon warning, and a clear current-event action.

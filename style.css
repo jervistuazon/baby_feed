@@ -1,6 +1,9 @@
 :root {
   color-scheme: light;
   --bg: #ffffff;
+  --night-blue: #031334;
+  --deep-evening-blue: #073f84;
+  --dawn-blue: #c7e5ff;
   --panel: #ffffff;
   --text: #172033;
   --muted: #8791a1;
@@ -25,15 +28,27 @@
 }
 
 html {
-  background: #f8f9fb;
+  background: var(--night-blue);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(255, 230, 240, 0.55), transparent 34rem),
-    linear-gradient(180deg, #fff 0%, #fff 100%);
+    radial-gradient(circle at 18% 9%, rgba(255, 199, 135, 0.48), transparent 18rem),
+    radial-gradient(circle at 82% 91%, rgba(255, 199, 135, 0.38), transparent 18rem),
+    linear-gradient(
+      180deg,
+      var(--night-blue) 0%,
+      var(--deep-evening-blue) 14%,
+      var(--dawn-blue) 29%,
+      #ffffff 47%,
+      #ffffff 56%,
+      var(--dawn-blue) 72%,
+      var(--deep-evening-blue) 88%,
+      var(--night-blue) 100%
+    );
+  background-attachment: fixed;
   color: var(--text);
 }
 
@@ -55,7 +70,8 @@ button {
   min-height: 100vh;
   margin: 0 auto;
   padding: max(12px, env(safe-area-inset-top)) 14px max(22px, env(safe-area-inset-bottom));
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
 }
 
 .app-header {
@@ -179,17 +195,36 @@ h1 {
 .gap-notice {
   margin: 10px 0 0;
   padding: 12px 16px;
-  background: #fff7df;
-  border: 1px solid #ffe29b;
+  background: var(--pink-soft);
+  border: 2px solid var(--pink);
   border-radius: 18px;
-  color: #8d6416;
-  font-weight: 750;
+  color: var(--pink);
+  font-weight: 850;
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(249, 39, 103, 0.13);
 }
 
 .tracker-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+  padding: 10px;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 207, 148, 0.52), transparent 12rem),
+    radial-gradient(circle at 82% 90%, rgba(255, 207, 148, 0.42), transparent 12rem),
+    linear-gradient(
+      180deg,
+      #021133 0%,
+      #0752a6 18%,
+      #d8efff 36%,
+      #ffffff 50%,
+      #d8efff 64%,
+      #0752a6 82%,
+      #021133 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 24px;
+  box-shadow: 0 18px 38px rgba(3, 19, 52, 0.18);
 }
 
 .time-cell {
@@ -200,7 +235,7 @@ h1 {
   justify-content: center;
   gap: clamp(8px, 1.8vw, 14px);
   padding: 10px 8px;
-  background: var(--panel);
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--card-border);
   border-radius: 16px;
   color: var(--text);
@@ -211,6 +246,38 @@ h1 {
 .time-cell.warning-gap:not([data-has-entry="true"]) {
   border-color: #ffe0aa;
   background: linear-gradient(180deg, #fff, #fffaf0);
+}
+
+.time-cell.next-feed-window {
+  position: relative;
+  overflow: hidden;
+  border-color: #f92767;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(253, 229, 238, 0.96)),
+    var(--panel);
+  box-shadow:
+    0 0 0 3px rgba(249, 39, 103, 0.14),
+    0 14px 28px rgba(249, 39, 103, 0.18);
+  transform: translateY(-1px);
+}
+
+.time-cell.next-feed-window::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--pink);
+  box-shadow: 0 0 0 5px rgba(249, 39, 103, 0.15);
+}
+
+.time-cell.next-feed-window.warning-gap:not([data-has-entry="true"]) {
+  border-color: #f92767;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(253, 229, 238, 0.96)),
+    var(--panel);
 }
 
 .time-label {
@@ -272,23 +339,6 @@ h1 {
 .activity-icon-pill.notes-icon {
   background: var(--purple-soft);
   color: var(--purple);
-}
-
-.tap-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 14px 0 16px;
-  color: #8b95a5;
-  font-size: clamp(0.98rem, 3.2vw, 1.35rem);
-  font-weight: 520;
-  text-align: center;
-}
-
-.tap-hint span {
-  color: #9aa2af;
-  font-size: 1.45em;
 }
 
 .utility-actions {
