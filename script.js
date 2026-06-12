@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.12.2";
+const APP_VERSION = "2026.06.12.5";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
@@ -30,16 +30,12 @@ const milkTotal = document.getElementById("milkTotal");
 const peeTotal = document.getElementById("peeTotal");
 const poopTotal = document.getElementById("poopTotal");
 const notesTotal = document.getElementById("notesTotal");
-const feedStatusCard = document.getElementById("feedStatusCard");
-const feedStatusText = document.getElementById("feedStatusText");
 const lastMilkTime = document.getElementById("lastMilkTime");
-const timeSinceMilk = document.getElementById("timeSinceMilk");
 const nextFeedTime = document.getElementById("nextFeedTime");
 const clearDayButton = document.getElementById("clearDay");
 const exportCsvButton = document.getElementById("exportCsv");
 const backupJsonButton = document.getElementById("backupJson");
 const settingsButton = document.getElementById("settingsButton");
-const feedingGapNotice = document.getElementById("feedingGapNotice");
 const activityModal = document.getElementById("activityModal");
 const modalDateLabel = document.getElementById("modalDateLabel");
 const modalTitle = document.getElementById("modalTitle");
@@ -128,11 +124,6 @@ function getCurrentSlotIndex() {
   const totalMinutes = now.getHours() * 60 + now.getMinutes();
 
   return Math.min(TOTAL_SLOTS - 1, Math.floor(totalMinutes / SLOT_MINUTES));
-}
-
-function getMinutesSinceStartOfDay() {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
 }
 
 function normalizeLoadedData(savedData) {
@@ -347,20 +338,8 @@ function renderGrid() {
 
   TIME_SECTIONS.forEach((section) => {
     const sectionElement = document.createElement("section");
-    sectionElement.className = "time-section";
-    sectionElement.setAttribute("aria-labelledby", `time-section-${section.label.toLowerCase()}`);
-
-    const sectionHeader = document.createElement("div");
-    sectionHeader.className = "time-section-header";
-    sectionHeader.id = `time-section-${section.label.toLowerCase()}`;
-
-    const label = document.createElement("strong");
-    label.textContent = section.label;
-
-    const detail = document.createElement("span");
-    detail.textContent = section.detail;
-
-    sectionHeader.append(label, detail);
+    sectionElement.className = `time-section ${section.label.toLowerCase()}-section`;
+    sectionElement.setAttribute("aria-label", `${section.label} tracker slots, ${section.detail}`);
 
     const sectionBody = document.createElement("div");
     sectionBody.className = "time-section-body";
@@ -369,7 +348,7 @@ function renderGrid() {
       sectionBody.appendChild(createTimeCell(dayData[index], index, promptSlotIndex, currentSlotIndex));
     }
 
-    sectionElement.append(sectionHeader, sectionBody);
+    sectionElement.append(sectionBody);
     trackerGrid.appendChild(sectionElement);
   });
 
@@ -446,36 +425,12 @@ function deleteActivityEntry() {
   closeActivityModal();
 }
 
-function formatElapsedMinutes(minutes) {
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-
-  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
-}
-
-function updateFeedStatus(milkCount) {
+function updateFeedStatus() {
   const lastIndex = getLastMilkIndex();
-  const statusClasses = ["feed-status-none", "feed-status-ok", "feed-status-soon", "feed-status-alert"];
-
-  feedStatusCard.classList.remove(...statusClasses);
 
   if (lastIndex === null) {
     lastMilkTime.textContent = "--";
-    timeSinceMilk.textContent = "--";
     nextFeedTime.textContent = "--";
-
-    if (isToday(selectedDate) && getCurrentSlotIndex() > THREE_HOURS_IN_SLOTS) {
-      feedStatusCard.classList.add("feed-status-alert");
-      feedStatusText.textContent = "Long gap";
-    } else {
-      feedStatusCard.classList.add("feed-status-none");
-      feedStatusText.textContent = "No feeds logged";
-    }
-
     return;
   }
 
@@ -487,25 +442,7 @@ function updateFeedStatus(milkCount) {
   nextFeedTime.textContent = nextStart === null ? "--" : getSlotRangeLabel(nextStart, nextEnd);
 
   if (!isToday(selectedDate)) {
-    feedStatusCard.classList.add("feed-status-ok");
-    feedStatusText.textContent = `${milkCount} feeds logged`;
-    timeSinceMilk.textContent = "--";
     return;
-  }
-
-  const elapsedMinutes = Math.max(0, getMinutesSinceStartOfDay() - lastIndex * SLOT_MINUTES);
-  const elapsedSlots = elapsedMinutes / SLOT_MINUTES;
-  timeSinceMilk.textContent = formatElapsedMinutes(elapsedMinutes);
-
-  if (elapsedSlots > THREE_HOURS_IN_SLOTS) {
-    feedStatusCard.classList.add("feed-status-alert");
-    feedStatusText.textContent = "Long gap";
-  } else if (elapsedSlots >= FEED_WINDOW_DELAY_SLOTS) {
-    feedStatusCard.classList.add("feed-status-soon");
-    feedStatusText.textContent = "Feed window";
-  } else {
-    feedStatusCard.classList.add("feed-status-ok");
-    feedStatusText.textContent = "On track";
   }
 }
 
@@ -516,7 +453,7 @@ function updateSummary() {
   peeTotal.textContent = dayData.filter((slot) => slot.pee).length;
   poopTotal.textContent = dayData.filter((slot) => slot.poop).length;
   notesTotal.textContent = dayData.filter((slot) => slot.notes).length;
-  updateFeedStatus(milkCount);
+  updateFeedStatus();
 }
 
 function highlightFeedingGaps() {
@@ -557,8 +494,6 @@ function highlightFeedingGaps() {
   });
 
   const nextFeedWindow = getNextFeedWindow();
-  const messages = [];
-
   if (nextFeedWindow) {
     for (let index = nextFeedWindow.start; index <= nextFeedWindow.end; index += 1) {
       const cell = cells[index];
@@ -568,16 +503,6 @@ function highlightFeedingGaps() {
         cell.setAttribute("aria-label", `${cell.getAttribute("aria-label")} Suggested next feeding window.`);
       }
     }
-
-    messages.push(`Next feed focus: ${getSlotRangeLabel(nextFeedWindow.start, nextFeedWindow.end + 1)}`);
-  }
-
-  if (messages.length) {
-    feedingGapNotice.hidden = false;
-    feedingGapNotice.textContent = messages.join(" ");
-  } else {
-    feedingGapNotice.hidden = true;
-    feedingGapNotice.textContent = "";
   }
 }
 

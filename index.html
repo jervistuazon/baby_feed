@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <title>Anya Baby Tracker</title>
-  <link rel="stylesheet" href="style.css?v=2026.06.12.2">
+  <link rel="stylesheet" href="style.css?v=2026.06.12.5">
 </head>
 <body>
   <div class="app-shell">
@@ -51,29 +51,16 @@
         </div>
       </div>
 
-      <div id="feedStatusCard" class="feed-status-card feed-status-none" aria-live="polite">
-        <div class="feed-status-main">
-          <span id="feedStatusDot" class="feed-status-dot" aria-hidden="true"></span>
-          <div>
-            <small>Feed status</small>
-            <strong id="feedStatusText">No feeds logged</strong>
-          </div>
-        </div>
+      <div id="feedStatusCard" class="feed-status-card" aria-live="polite">
         <div class="feed-status-detail">
-          <small>Last milk</small>
+          <small>Last feed</small>
           <strong id="lastMilkTime">--</strong>
-        </div>
-        <div class="feed-status-detail">
-          <small>Since last</small>
-          <strong id="timeSinceMilk">--</strong>
         </div>
         <div class="feed-status-detail">
           <small>Next feed</small>
           <strong id="nextFeedTime">--</strong>
         </div>
       </div>
-
-      <p id="feedingGapNotice" class="gap-notice" hidden></p>
     </section>
 
     <main>
@@ -122,6 +109,6 @@
     </section>
   </div>
 
-  <script src="script.js?v=2026.06.12.2"></script>
+  <script src="script.js?v=2026.06.12.5"></script>
 </body>
 </html>
