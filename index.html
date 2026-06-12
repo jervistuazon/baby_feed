@@ -5,49 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <title>Anya Baby Tracker</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2026.06.12.2">
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <h1><span class="heart-icon" aria-hidden="true">♡</span> Anya Baby Tracker</h1>
+      <h1><span class="heart-icon" aria-hidden="true">&hearts;</span> Anya Baby Tracker</h1>
     </header>
 
     <section class="daily-panel" aria-label="Daily controls and summary">
       <div class="date-card">
-        <button id="previousDay" class="day-button" type="button"><span aria-hidden="true">◀</span> Prev</button>
-        <button id="todayButton" class="day-button today-button" type="button"><span aria-hidden="true">▣</span> <span id="selectedDateText">Today</span></button>
-        <button id="nextDay" class="day-button" type="button">Next <span aria-hidden="true">▶</span></button>
+        <button id="previousDay" class="day-button" type="button"><span aria-hidden="true">&lsaquo;</span> Prev</button>
+        <button id="todayButton" class="day-button today-button" type="button"><span aria-hidden="true">&bull;</span> <span id="selectedDateText">Today</span></button>
+        <button id="nextDay" class="day-button" type="button">Next <span aria-hidden="true">&rsaquo;</span></button>
       </div>
 
       <div class="summary-card" aria-label="Daily summary">
         <div class="summary-item milk-summary">
-          <span class="summary-icon" aria-hidden="true">🍼</span>
+          <span class="summary-icon" aria-hidden="true">&#x1F37C;</span>
           <div>
-            <small>Milk</small>
+            <small>Feeds</small>
             <span id="milkTotal">0</span>
           </div>
         </div>
         <div class="summary-item pee-summary">
-          <span class="summary-icon" aria-hidden="true">💧</span>
+          <span class="summary-icon" aria-hidden="true">&#x1F4A7;</span>
           <div>
             <small>Pee</small>
             <span id="peeTotal">0</span>
           </div>
         </div>
         <div class="summary-item poop-summary">
-          <span class="summary-icon" aria-hidden="true">💩</span>
+          <span class="summary-icon" aria-hidden="true">&#x1F4A9;</span>
           <div>
             <small>Poop</small>
             <span id="poopTotal">0</span>
           </div>
         </div>
         <div class="summary-item notes-summary">
-          <span class="summary-icon" aria-hidden="true">💬</span>
+          <span class="summary-icon" aria-hidden="true">&#x1F4AC;</span>
           <div>
             <small>Notes</small>
             <span id="notesTotal">0</span>
           </div>
+        </div>
+      </div>
+
+      <div id="feedStatusCard" class="feed-status-card feed-status-none" aria-live="polite">
+        <div class="feed-status-main">
+          <span id="feedStatusDot" class="feed-status-dot" aria-hidden="true"></span>
+          <div>
+            <small>Feed status</small>
+            <strong id="feedStatusText">No feeds logged</strong>
+          </div>
+        </div>
+        <div class="feed-status-detail">
+          <small>Last milk</small>
+          <strong id="lastMilkTime">--</strong>
+        </div>
+        <div class="feed-status-detail">
+          <small>Since last</small>
+          <strong id="timeSinceMilk">--</strong>
+        </div>
+        <div class="feed-status-detail">
+          <small>Next feed</small>
+          <strong id="nextFeedTime">--</strong>
         </div>
       </div>
 
@@ -56,11 +78,11 @@
 
     <main>
       <div id="trackerGrid" class="tracker-grid" aria-label="30 minute baby care tracker"></div>
-      <div class="utility-actions">
-        <button id="clearDay" class="utility-button danger-button" type="button"><span aria-hidden="true">🗑️</span> Clear Day</button>
-        <button id="exportCsv" class="utility-button csv-button" type="button"><span aria-hidden="true">📄</span> Export CSV</button>
+      <div class="utility-actions" aria-label="Tracker actions">
+        <button id="clearDay" class="utility-button danger-button" type="button"><span aria-hidden="true">&#x1F5D1;</span> Clear Day</button>
+        <button id="exportCsv" class="utility-button csv-button" type="button"><span aria-hidden="true">&#x1F4C4;</span> Export CSV</button>
         <button id="backupJson" class="utility-button json-button" type="button"><span aria-hidden="true">{ }</span> Backup JSON</button>
-        <button id="settingsButton" class="utility-button settings-button" type="button"><span aria-hidden="true">⚙️</span> Settings</button>
+        <button id="settingsButton" class="utility-button settings-button" type="button"><span aria-hidden="true">&#9881;</span> Settings</button>
       </div>
     </main>
   </div>
@@ -69,32 +91,37 @@
     <section class="activity-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="modal-header">
         <div>
-          <span class="date-label">Choose entry</span>
+          <span id="modalDateLabel" class="date-label">Choose entry</span>
           <h2 id="modalTitle">12:30 PM</h2>
         </div>
-        <button id="closeModal" class="close-button" type="button" aria-label="Close popup">×</button>
+        <button id="closeModal" class="close-button" type="button" aria-label="Close popup">&times;</button>
       </div>
 
       <div class="activity-options" aria-label="Activity choices">
         <button class="activity-choice milk-choice" type="button" data-type="milk" aria-pressed="false">
-          <span class="activity-icon">🍼</span>
+          <span class="activity-icon">&#x1F37C;</span>
           <span>Milk</span>
         </button>
         <button class="activity-choice pee-choice" type="button" data-type="pee" aria-pressed="false">
-          <span class="activity-icon">💧</span>
+          <span class="activity-icon">&#x1F4A7;</span>
           <span>Pee</span>
         </button>
         <button class="activity-choice poop-choice" type="button" data-type="poop" aria-pressed="false">
-          <span class="activity-icon">💩</span>
+          <span class="activity-icon">&#x1F4A9;</span>
           <span>Poop</span>
         </button>
       </div>
 
       <label class="notes-label" for="modalNotes">Optional note</label>
       <input id="modalNotes" class="notes-input" type="text" maxlength="80" placeholder="Short note">
+
+      <div class="modal-actions">
+        <button id="deleteEntry" class="modal-button delete-entry" type="button">Delete entry</button>
+        <button id="saveEntry" class="modal-button save-entry" type="button">Save</button>
+      </div>
     </section>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=2026.06.12.2"></script>
 </body>
 </html>

@@ -21,6 +21,16 @@ python3 -m http.server 4173
 
 Then open <http://localhost:4173>.
 
+## Cache busting
+
+Every app update must bump the cache-buster version in `index.html` and `script.js`.
+
+- Update the `?v=...` value on the `style.css` and `script.js` asset URLs in `index.html`.
+- Update `APP_VERSION` at the top of `script.js` to the same value.
+- Use an incrementing value such as `2026.06.12.2` for the next update.
+
+This keeps deployed browsers from reusing old cached CSS or JavaScript after a new release.
+
 ## Deploy directly to Vercel
 
 This project is already configured for Vercel as a static site. There is no build command and no output folder to generate.
