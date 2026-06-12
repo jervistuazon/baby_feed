@@ -102,24 +102,26 @@ function saveDay() {
   updateSummary();
 }
 
-function getPrimaryActivity(slot) {
+function getSlotActivities(slot) {
+  const activities = [];
+
   if (slot.milk) {
-    return { icon: "🍼", className: "milk-icon", label: "milk" };
+    activities.push({ icon: "🍼", className: "milk-icon", label: "milk" });
   }
 
   if (slot.pee) {
-    return { icon: "💧", className: "pee-icon", label: "pee" };
+    activities.push({ icon: "💧", className: "pee-icon", label: "pee" });
   }
 
   if (slot.poop) {
-    return { icon: "🩲", className: "poop-icon", label: "poop" };
+    activities.push({ icon: "🩲", className: "poop-icon", label: "poop" });
   }
 
   if (slot.notes) {
-    return { icon: "💬", className: "notes-icon", label: "note" };
+    activities.push({ icon: "💬", className: "notes-icon", label: "note" });
   }
 
-  return null;
+  return activities;
 }
 
 function getSlotSummary(slot) {
@@ -149,8 +151,8 @@ function renderGrid() {
 
   dayData.forEach((slot, index) => {
     const cell = document.createElement("button");
-    const activity = getPrimaryActivity(slot);
-    const hasEntry = Boolean(activity);
+    const activities = getSlotActivities(slot);
+    const hasEntry = activities.length > 0;
 
     cell.type = "button";
     cell.className = "time-cell";
@@ -163,16 +165,18 @@ function renderGrid() {
     time.textContent = getSlotTime(index);
 
     const iconStrip = document.createElement("span");
-    iconStrip.className = activity ? `activity-icons ${activity.className}` : "activity-icons is-empty";
-    iconStrip.textContent = activity ? activity.icon : "+";
+    iconStrip.className = hasEntry ? "activity-icons" : "activity-icons is-empty";
     iconStrip.setAttribute("aria-hidden", "true");
 
-    if (slot.notes) {
-      const noteDot = document.createElement("span");
-      noteDot.className = "note-dot";
-      noteDot.textContent = "•";
-      noteDot.setAttribute("aria-hidden", "true");
-      iconStrip.appendChild(noteDot);
+    if (hasEntry) {
+      activities.forEach((activity) => {
+        const activityIcon = document.createElement("span");
+        activityIcon.className = `activity-icon-pill ${activity.className}`;
+        activityIcon.textContent = activity.icon;
+        iconStrip.appendChild(activityIcon);
+      });
+    } else {
+      iconStrip.textContent = "+";
     }
 
     cell.append(time, iconStrip);
@@ -220,7 +224,7 @@ function toggleActivity(type) {
   dayData[activeSlotIndex][type] = !dayData[activeSlotIndex][type];
   saveDay();
   renderGrid();
-  syncModalState();
+  closeActivityModal();
 }
 
 function updateModalNotes() {
