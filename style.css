@@ -227,8 +227,8 @@ h1 {
 
 .tracker-grid {
   display: grid;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 7px;
+  margin-bottom: 12px;
 }
 
 .time-section {
@@ -257,20 +257,20 @@ h1 {
 .time-section-body {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  padding: 6px;
 }
 
 .time-cell {
   position: relative;
   display: flex;
-  min-height: 96px;
+  min-height: 76px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 10px 8px;
+  gap: 6px;
+  padding: 8px 6px;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--card-border);
   border-radius: 8px;
@@ -291,7 +291,7 @@ h1 {
 
 .time-label {
   color: var(--text);
-  font-size: 0.96rem;
+  font-size: 0.88rem;
   font-weight: 760;
   letter-spacing: 0;
   line-height: 1;
@@ -299,43 +299,43 @@ h1 {
 
 .activity-icons {
   display: flex;
-  width: min(100%, 82px);
-  min-height: 42px;
+  width: min(100%, 72px);
+  min-height: 34px;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 3px;
   color: #8b95a3;
-  font-size: 1.25rem;
+  font-size: 1.12rem;
   font-weight: 800;
   line-height: 1;
 }
 
 .activity-icons.is-empty {
   color: #a8b0bb;
-  font-size: 1.25rem;
+  font-size: 1.12rem;
 }
 
 .activity-icons.tap-prompt {
   justify-content: center;
   width: min(100%, 90px);
-  min-height: 34px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 6px;
   border: 1px dashed rgba(230, 66, 111, 0.58);
   border-radius: 8px;
   background: var(--milk-soft);
   color: var(--milk);
-  font-size: 0.9rem;
+  font-size: 0.74rem;
   font-weight: 850;
 }
 
 .activity-icon-pill {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 27px;
+  height: 27px;
   place-items: center;
   border-radius: 8px;
-  font-size: 1.2rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
@@ -385,12 +385,30 @@ h1 {
 }
 
 .time-cell.next-feed-window {
-  border-color: var(--milk);
-  background: var(--milk-soft);
+  z-index: 1;
+  border-color: #f02f68;
+  background: linear-gradient(180deg, #fff7fb 0%, var(--milk-soft) 100%);
+  box-shadow: 0 0 0 3px rgba(230, 66, 111, 0.18), 0 0 22px rgba(230, 66, 111, 0.36), var(--soft-shadow);
+  animation: nextFeedGlow 1800ms ease-in-out infinite;
 }
 
 .time-cell.next-feed-window .timeline-dot {
   background: var(--milk);
+}
+
+.time-cell.next-feed-window::after {
+  content: "Next";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--milk);
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .time-cell.slot-tapped {
@@ -592,6 +610,17 @@ body.modal-open {
   }
 }
 
+@keyframes nextFeedGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(230, 66, 111, 0.16), 0 0 18px rgba(230, 66, 111, 0.32), var(--soft-shadow);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px rgba(230, 66, 111, 0.24), 0 0 30px rgba(230, 66, 111, 0.48), var(--soft-shadow);
+  }
+}
+
 @media (max-width: 620px) {
   .app-shell {
     padding-inline: 12px;
@@ -669,28 +698,42 @@ body.modal-open {
   }
 
   .time-cell {
-    min-height: 82px;
-    gap: 8px;
-    padding: 9px 6px;
+    min-height: 66px;
+    gap: 5px;
+    padding: 7px 4px;
   }
 
   .time-label {
-    font-size: 0.88rem;
+    font-size: 0.72rem;
   }
 
   .activity-icons {
-    min-height: 34px;
-    font-size: 1.05rem;
+    min-height: 28px;
+    font-size: 0.95rem;
   }
 
   .activity-icons.tap-prompt {
-    font-size: 0.8rem;
+    min-height: 24px;
+    padding-inline: 3px;
+    font-size: 0.62rem;
   }
 
   .activity-icon-pill {
-    width: 29px;
-    height: 29px;
-    font-size: 1.05rem;
+    width: 24px;
+    height: 24px;
+    font-size: 0.9rem;
+  }
+
+  .time-section-body {
+    gap: 4px;
+    padding: 5px;
+  }
+
+  .time-cell.next-feed-window::after {
+    top: 3px;
+    right: 3px;
+    padding: 2px 4px;
+    font-size: 0.5rem;
   }
 
   .utility-actions {
@@ -729,7 +772,7 @@ body.modal-open {
   }
 
   .time-cell {
-    min-height: 78px;
+    min-height: 62px;
   }
 
   .activity-options {
