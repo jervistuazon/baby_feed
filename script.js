@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.13.8";
+const APP_VERSION = "2026.06.13.9";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
@@ -36,6 +36,8 @@ const nextFeedTime = document.getElementById("nextFeedTime");
 const clearDayButton = document.getElementById("clearDay");
 const exportCsvButton = document.getElementById("exportCsv");
 const backupJsonButton = document.getElementById("backupJson");
+const importJsonButton = document.getElementById("importJson");
+const importJsonInput = document.getElementById("importJsonInput");
 const settingsButton = document.getElementById("settingsButton");
 const settingsMenu = document.getElementById("settingsMenu");
 const activityModal = document.getElementById("activityModal");
@@ -97,6 +99,23 @@ function getDateKey(date) {
 
 function getStorageKey(date = selectedDate) {
   return `${TRACKER_PREFIX}${getDateKey(date)}`;
+}
+
+function isTrackerStorageKey(key) {
+  const match = String(key).match(/^anya-tracker-(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!match) {
+    return false;
+  }
+
+  const [, year, month, day] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+
+  return (
+    date.getFullYear() === Number(year) &&
+    date.getMonth() === Number(month) - 1 &&
+    date.getDate() === Number(day)
+  );
 }
 
 function formatDisplayDate(date) {
@@ -649,6 +668,91 @@ function backupJson() {
   );
 }
 
+function parseBackupDay(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function getImportableTrackerEntries(backup) {
+  if (!backup || typeof backup !== "object" || Array.isArray(backup)) {
+    throw new Error("Invalid backup format");
+  }
+
+  return Object.entries(backup)
+    .filter(([key]) => isTrackerStorageKey(key))
+    .map(([key, value]) => {
+      const day = parseBackupDay(value);
+      return day ? { key, day: normalizeLoadedData(day) } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function importJsonFile(file) {
+  if (!file) {
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.addEventListener("load", () => {
+    try {
+      const backup = JSON.parse(reader.result);
+      const entries = getImportableTrackerEntries(backup);
+
+      if (!entries.length) {
+        window.alert("No saved Baby Tracker days were found in that file.");
+        return;
+      }
+
+      const replacedCount = entries.filter(({ key }) => localStorage.getItem(key) !== null).length;
+      const dayText = `${entries.length} saved ${entries.length === 1 ? "day" : "days"}`;
+      const replaceText = replacedCount
+        ? ` ${replacedCount} existing ${replacedCount === 1 ? "day" : "days"} will be replaced.`
+        : "";
+      const confirmed = window.confirm(`Import ${dayText}?${replaceText}`);
+
+      if (!confirmed) {
+        return;
+      }
+
+      entries.forEach(({ key, day }) => {
+        localStorage.setItem(key, JSON.stringify(day));
+      });
+
+      loadDay();
+      window.alert(`Imported ${dayText}.`);
+    } catch (error) {
+      window.alert("Couldn't import that file. Please choose a Baby Tracker JSON backup.");
+    } finally {
+      importJsonInput.value = "";
+    }
+  });
+
+  reader.addEventListener("error", () => {
+    window.alert("Couldn't read that file. Please try again.");
+    importJsonInput.value = "";
+  });
+
+  reader.readAsText(file);
+}
+
+function importJson() {
+  importJsonInput.click();
+}
+
 function updateStickyOffset() {
   const panelHeight = dailyPanel?.offsetHeight || 0;
   document.documentElement.style.setProperty("--section-sticky-top", `${panelHeight + 10}px`);
@@ -709,6 +813,13 @@ exportCsvButton.addEventListener("click", () => {
 backupJsonButton.addEventListener("click", () => {
   closeSettingsMenu();
   backupJson();
+});
+importJsonButton.addEventListener("click", () => {
+  closeSettingsMenu();
+  importJson();
+});
+importJsonInput.addEventListener("change", (event) => {
+  importJsonFile(event.target.files?.[0]);
 });
 settingsButton.addEventListener("click", toggleSettingsMenu);
 window.addEventListener("resize", updateStickyOffset);
