@@ -3,17 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#f5f7f8">
+  <meta name="theme-color" content="#fff7f8">
   <title>Anya Baby Tracker</title>
-  <link rel="stylesheet" href="style.css?v=2026.06.13.9">
+  <link rel="stylesheet" href="style.css?v=2026.06.14.1">
 </head>
 <body>
+  <svg class="icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="icon-heart" viewBox="0 0 24 24">
+      <path d="M12 21s-7.6-4.5-9.5-9.5C1 7.4 3.4 4 7.3 4c2 0 3.5 1 4.7 2.6C13.2 5 14.8 4 16.7 4c3.9 0 6.3 3.4 4.8 7.5C19.6 16.5 12 21 12 21Z" />
+      <path d="M16.6 7.3c1.2.2 2 .9 2.3 2.1" fill="none" />
+    </symbol>
+    <symbol id="icon-gear" viewBox="0 0 24 24">
+      <path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Z" />
+      <path d="m19.1 14.5 1.4 1.1-1.8 3.1-1.7-.7a7 7 0 0 1-1.8 1l-.3 1.8H9.3L9 19a7 7 0 0 1-1.8-1l-1.7.7-1.8-3.1 1.4-1.1a7.5 7.5 0 0 1 0-2l-1.4-1.1 1.8-3.1 1.7.7A7 7 0 0 1 9 8l.3-1.8h5.6l.3 1.8a7 7 0 0 1 1.8 1l1.7-.7 1.8 3.1-1.4 1.1a7.5 7.5 0 0 1 0 2Z" />
+    </symbol>
+    <symbol id="icon-bottle" viewBox="0 0 24 24">
+      <path d="M10 3h4" />
+      <path d="M9.5 6h5" />
+      <path d="M10 6v3.4l-1.8 2.1a4 4 0 0 0-1 2.7V19a2 2 0 0 0 2 2h5.6a2 2 0 0 0 2-2v-4.8a4 4 0 0 0-1-2.7L14 9.4V6" />
+      <path d="M9.4 14h5.2" />
+      <path d="M9.4 17h5.2" />
+    </symbol>
+    <symbol id="icon-drop" viewBox="0 0 24 24">
+      <path d="M12 3.8s6.2 6.8 6.2 11a6.2 6.2 0 0 1-12.4 0c0-4.2 6.2-11 6.2-11Z" />
+      <path d="M9.5 15.3a2.7 2.7 0 0 0 2.7 2.7" />
+    </symbol>
+    <symbol id="icon-diaper" viewBox="0 0 24 24">
+      <path d="M4.8 6.5h14.4v6.2A6.7 6.7 0 0 1 12.5 19h-1a6.7 6.7 0 0 1-6.7-6.3V6.5Z" />
+      <path d="M4.8 9.5c2.2.4 3.9 1.8 4.8 3.8" />
+      <path d="M19.2 9.5c-2.2.4-3.9 1.8-4.8 3.8" />
+      <path d="M10.2 15.2h3.6" />
+    </symbol>
+    <symbol id="icon-note" viewBox="0 0 24 24">
+      <path d="M6 4.5h12A1.5 1.5 0 0 1 19.5 6v8.4a1.5 1.5 0 0 1-1.5 1.5h-5.5L8 19.5v-3.6H6a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 6 4.5Z" />
+      <path d="M8.2 8.5h7.6" />
+      <path d="M8.2 11.5h5" />
+    </symbol>
+    <symbol id="icon-file" viewBox="0 0 24 24">
+      <path d="M7 3.8h6.3L18 8.5v11.7H7V3.8Z" />
+      <path d="M13 3.8v5h5" />
+      <path d="M9.6 13h4.8" />
+      <path d="M9.6 16h4.8" />
+    </symbol>
+    <symbol id="icon-save" viewBox="0 0 24 24">
+      <path d="M5 4h12.2L20 6.8V20H5V4Z" />
+      <path d="M8 4v5h7V4" />
+      <path d="M8.2 15.5h7.6V20H8.2v-4.5Z" />
+    </symbol>
+    <symbol id="icon-import" viewBox="0 0 24 24">
+      <path d="M12 3.8v10" />
+      <path d="m8.2 10.2 3.8 3.7 3.8-3.7" />
+      <path d="M5 15v4.2h14V15" />
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24">
+      <path d="M5 7h14" />
+      <path d="M9 7V4.8h6V7" />
+      <path d="M7.2 7.2 8 20h8l.8-12.8" />
+      <path d="M10.2 11v5" />
+      <path d="M13.8 11v5" />
+    </symbol>
+  </svg>
   <div class="app-shell">
     <header class="app-header">
-      <h1><span class="heart-icon" aria-hidden="true">A</span> Anya</h1>
+      <h1><span class="heart-icon" aria-hidden="true"><svg class="app-icon"><use href="#icon-heart"></use></svg></span> Anya</h1>
       <div class="header-actions">
         <button id="settingsButton" class="settings-trigger" type="button" aria-expanded="false" aria-controls="settingsMenu" aria-label="Open settings">
-          <span aria-hidden="true">&#9881;</span>
+          <svg class="app-icon" aria-hidden="true"><use href="#icon-gear"></use></svg>
         </button>
         <div id="settingsMenu" class="settings-menu" hidden>
           <div class="settings-menu-header">
@@ -21,28 +76,28 @@
             <span>Baby Tracker</span>
           </div>
           <button id="exportCsv" class="settings-menu-item" type="button">
-            <span aria-hidden="true">&#x1F4C4;</span>
+            <span aria-hidden="true"><svg class="menu-icon"><use href="#icon-file"></use></svg></span>
             <span>
               <strong>Export selected day</strong>
               <small>CSV for the day on screen</small>
             </span>
           </button>
           <button id="backupJson" class="settings-menu-item" type="button">
-            <span aria-hidden="true">&#x1F4BE;</span>
+            <span aria-hidden="true"><svg class="menu-icon"><use href="#icon-save"></use></svg></span>
             <span>
               <strong>Backup all saved days</strong>
               <small>JSON copy for safekeeping</small>
             </span>
           </button>
           <button id="importJson" class="settings-menu-item" type="button">
-            <span aria-hidden="true">&#x1F4E5;</span>
+            <span aria-hidden="true"><svg class="menu-icon"><use href="#icon-import"></use></svg></span>
             <span>
               <strong>Import saved days</strong>
               <small>Restore from a JSON backup</small>
             </span>
           </button>
           <button id="clearDay" class="settings-menu-item danger-menu-item" type="button">
-            <span aria-hidden="true">&#x1F5D1;</span>
+            <span aria-hidden="true"><svg class="menu-icon"><use href="#icon-trash"></use></svg></span>
             <span>
               <strong>Clear selected day</strong>
               <small>Remove entries for this date</small>
@@ -62,7 +117,7 @@
 
       <div class="summary-card" aria-label="Daily summary">
         <div class="summary-item milk-summary">
-          <span class="summary-icon" aria-hidden="true">&#x1F37C;</span>
+          <span class="summary-icon" aria-hidden="true"><svg class="icon-glyph"><use href="#icon-bottle"></use></svg></span>
           <div>
             <small>Milk</small>
             <span id="milkTotal">0 ml</span>
@@ -70,21 +125,21 @@
           </div>
         </div>
         <div class="summary-item pee-summary">
-          <span class="summary-icon" aria-hidden="true">&#x1F4A7;</span>
+          <span class="summary-icon" aria-hidden="true"><svg class="icon-glyph"><use href="#icon-drop"></use></svg></span>
           <div>
             <small>Pee</small>
             <span id="peeTotal">0</span>
           </div>
         </div>
         <div class="summary-item poop-summary">
-          <span class="summary-icon" aria-hidden="true">&#x1F4A9;</span>
+          <span class="summary-icon" aria-hidden="true"><svg class="icon-glyph"><use href="#icon-diaper"></use></svg></span>
           <div>
             <small>Poop</small>
             <span id="poopTotal">0</span>
           </div>
         </div>
         <div class="summary-item notes-summary">
-          <span class="summary-icon" aria-hidden="true">&#x1F4AC;</span>
+          <span class="summary-icon" aria-hidden="true"><svg class="icon-glyph"><use href="#icon-note"></use></svg></span>
           <div>
             <small>Notes</small>
             <span id="notesTotal">0</span>
@@ -121,15 +176,15 @@
 
       <div class="activity-options" aria-label="Activity choices">
         <button class="activity-choice milk-choice" type="button" data-type="milk" aria-pressed="false">
-          <span class="activity-icon">&#x1F37C;</span>
+          <span class="activity-icon"><svg class="icon-glyph" aria-hidden="true"><use href="#icon-bottle"></use></svg></span>
           <span>Milk</span>
         </button>
         <button class="activity-choice pee-choice" type="button" data-type="pee" aria-pressed="false">
-          <span class="activity-icon">&#x1F4A7;</span>
+          <span class="activity-icon"><svg class="icon-glyph" aria-hidden="true"><use href="#icon-drop"></use></svg></span>
           <span>Pee</span>
         </button>
         <button class="activity-choice poop-choice" type="button" data-type="poop" aria-pressed="false">
-          <span class="activity-icon">&#x1F4A9;</span>
+          <span class="activity-icon"><svg class="icon-glyph" aria-hidden="true"><use href="#icon-diaper"></use></svg></span>
           <span>Poop</span>
         </button>
       </div>
@@ -152,6 +207,6 @@
     </section>
   </div>
 
-  <script src="script.js?v=2026.06.13.9"></script>
+  <script src="script.js?v=2026.06.14.1"></script>
 </body>
 </html>

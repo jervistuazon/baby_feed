@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.13.9";
+const APP_VERSION = "2026.06.14.1";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
@@ -6,10 +6,10 @@ const THREE_HOURS_IN_SLOTS = 6;
 const FEED_WINDOW_DELAY_SLOTS = 4;
 const FEED_WINDOW_DURATION_SLOTS = 2;
 const ICONS = {
-  milk: "\u{1F37C}",
-  pee: "\u{1F4A7}",
-  poop: "\u{1F4A9}",
-  notes: "\u{1F4AC}"
+  milk: "bottle",
+  pee: "drop",
+  poop: "diaper",
+  notes: "note"
 };
 const TIME_SECTIONS = [
   { label: "Night", start: 0, end: 11, detail: "12 AM-6 AM" },
@@ -312,6 +312,19 @@ function triggerSlotFeedback(cell) {
   });
 }
 
+function createSvgIcon(name, className) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+
+  svg.classList.add(...className.split(" "));
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  use.setAttribute("href", `#icon-${name}`);
+  svg.appendChild(use);
+
+  return svg;
+}
+
 function createTimeCell(slot, index, promptSlotIndex, currentSlotIndex) {
   const cell = document.createElement("button");
   const activities = getSlotActivities(slot);
@@ -348,10 +361,7 @@ function createTimeCell(slot, index, promptSlotIndex, currentSlotIndex) {
 
   if (hasEntry) {
     activities.forEach((activity) => {
-      const activityIcon = document.createElement("span");
-      activityIcon.className = `activity-icon-pill ${activity.className}`;
-      activityIcon.textContent = activity.icon;
-      iconStrip.appendChild(activityIcon);
+      iconStrip.appendChild(createSvgIcon(activity.icon, `activity-icon-pill ${activity.className}`));
     });
   } else if (isPromptSlot) {
     iconStrip.classList.add("tap-prompt");
