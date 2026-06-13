@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#f5f7f8">
   <title>Anya Baby Tracker</title>
-  <link rel="stylesheet" href="style.css?v=2026.06.13.2">
+  <link rel="stylesheet" href="style.css?v=2026.06.13.7">
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <h1><span class="heart-icon" aria-hidden="true">&hearts;</span> Anya Baby Tracker</h1>
+      <h1><span class="heart-icon" aria-hidden="true">A</span> Anya</h1>
+      <span class="app-subtitle">Baby Tracker</span>
     </header>
 
     <section class="daily-panel" aria-label="Daily controls and summary">
       <div class="date-card">
         <button id="previousDay" class="day-button" type="button"><span aria-hidden="true">&lsaquo;</span> Prev</button>
-        <button id="todayButton" class="day-button today-button" type="button"><span aria-hidden="true">&bull;</span> <span id="selectedDateText">Today</span></button>
+        <button id="todayButton" class="day-button today-button" type="button"><span id="selectedDateText">Today</span></button>
         <button id="nextDay" class="day-button" type="button">Next <span aria-hidden="true">&rsaquo;</span></button>
       </div>
 
@@ -24,8 +25,9 @@
         <div class="summary-item milk-summary">
           <span class="summary-icon" aria-hidden="true">&#x1F37C;</span>
           <div>
-            <small>Feeds</small>
-            <span id="milkTotal">0</span>
+            <small>Milk</small>
+            <span id="milkTotal">0 ml</span>
+            <small id="milkAverage" class="summary-meta">0 feeds &bull; avg --</small>
           </div>
         </div>
         <div class="summary-item pee-summary">
@@ -66,9 +68,9 @@
     <main>
       <div id="trackerGrid" class="tracker-grid" aria-label="30 minute baby care tracker"></div>
       <div class="utility-actions" aria-label="Tracker actions">
-        <button id="clearDay" class="utility-button danger-button" type="button"><span aria-hidden="true">&#x1F5D1;</span> Clear Day</button>
-        <button id="exportCsv" class="utility-button csv-button" type="button"><span aria-hidden="true">&#x1F4C4;</span> Export CSV</button>
-        <button id="backupJson" class="utility-button json-button" type="button"><span aria-hidden="true">{ }</span> Backup JSON</button>
+        <button id="clearDay" class="utility-button danger-button" type="button"><span aria-hidden="true">&#x1F5D1;</span> Clear</button>
+        <button id="exportCsv" class="utility-button csv-button" type="button"><span aria-hidden="true">&#x1F4C4;</span> Export</button>
+        <button id="backupJson" class="utility-button json-button" type="button"><span aria-hidden="true">&#x1F4BE;</span> Backup</button>
         <button id="settingsButton" class="utility-button settings-button" type="button"><span aria-hidden="true">&#9881;</span> Settings</button>
       </div>
     </main>
@@ -99,6 +101,14 @@
         </button>
       </div>
 
+      <div class="milk-amount-field">
+        <label class="notes-label" for="modalMilkAmount">Milk amount</label>
+        <div class="amount-input-wrap">
+          <input id="modalMilkAmount" class="notes-input milk-amount-input" type="number" inputmode="numeric" min="0" max="999" step="1" placeholder="How many">
+          <span class="amount-unit" aria-hidden="true">ml</span>
+        </div>
+      </div>
+
       <label class="notes-label" for="modalNotes">Optional note</label>
       <input id="modalNotes" class="notes-input" type="text" maxlength="80" placeholder="Short note">
 
@@ -109,6 +119,6 @@
     </section>
   </div>
 
-  <script src="script.js?v=2026.06.13.2"></script>
+  <script src="script.js?v=2026.06.13.7"></script>
 </body>
 </html>

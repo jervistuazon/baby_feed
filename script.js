@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.13.2";
+const APP_VERSION = "2026.06.13.7";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
@@ -27,6 +27,7 @@ const todayButton = document.getElementById("todayButton");
 const nextDayButton = document.getElementById("nextDay");
 const trackerGrid = document.getElementById("trackerGrid");
 const milkTotal = document.getElementById("milkTotal");
+const milkAverage = document.getElementById("milkAverage");
 const peeTotal = document.getElementById("peeTotal");
 const poopTotal = document.getElementById("poopTotal");
 const notesTotal = document.getElementById("notesTotal");
@@ -43,6 +44,7 @@ const closeModalButton = document.getElementById("closeModal");
 const saveEntryButton = document.getElementById("saveEntry");
 const deleteEntryButton = document.getElementById("deleteEntry");
 const activityChoiceButtons = document.querySelectorAll(".activity-choice");
+const modalMilkAmount = document.getElementById("modalMilkAmount");
 const modalNotes = document.getElementById("modalNotes");
 
 let selectedDate = new Date();
@@ -53,6 +55,7 @@ let activeSlotDraft = null;
 function createEmptySlot() {
   return {
     milk: false,
+    milkAmountMl: null,
     pee: false,
     poop: false,
     notes: ""
@@ -66,6 +69,7 @@ function createEmptyDay() {
 function copySlot(slot) {
   return {
     milk: Boolean(slot?.milk),
+    milkAmountMl: normalizeMilkAmount(slot?.milkAmountMl),
     pee: Boolean(slot?.pee),
     poop: Boolean(slot?.poop),
     notes: slot?.notes || ""
@@ -74,6 +78,16 @@ function copySlot(slot) {
 
 function pad(value) {
   return String(value).padStart(2, "0");
+}
+
+function normalizeMilkAmount(value) {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  return Math.round(amount);
 }
 
 function getDateKey(date) {
@@ -136,6 +150,10 @@ function normalizeLoadedData(savedData) {
   return emptyDay.map((slot, index) => ({
     ...slot,
     ...(savedData[index] || {}),
+    milk: Boolean(savedData[index]?.milk),
+    milkAmountMl: normalizeMilkAmount(savedData[index]?.milkAmountMl),
+    pee: Boolean(savedData[index]?.pee),
+    poop: Boolean(savedData[index]?.poop),
     notes: savedData[index]?.notes || ""
   }));
 }
@@ -186,7 +204,8 @@ function getSlotSummary(slot) {
   const labels = [];
 
   if (slot.milk) {
-    labels.push("feed");
+    const amount = normalizeMilkAmount(slot.milkAmountMl);
+    labels.push(amount ? `feed ${amount} ml` : "feed");
   }
 
   if (slot.pee) {
@@ -362,6 +381,7 @@ function syncModalState() {
 
   modalDateLabel.textContent = formatFullDate(selectedDate);
   modalTitle.textContent = getSlotTime(activeSlotIndex);
+  modalMilkAmount.value = activeSlotDraft.milkAmountMl ?? "";
   modalNotes.value = activeSlotDraft.notes;
 
   activityChoiceButtons.forEach((button) => {
@@ -392,6 +412,25 @@ function toggleActivity(type) {
   }
 
   activeSlotDraft[type] = !activeSlotDraft[type];
+
+  if (type === "milk" && !activeSlotDraft.milk) {
+    activeSlotDraft.milkAmountMl = null;
+  }
+
+  syncModalState();
+}
+
+function updateModalMilkAmount() {
+  if (activeSlotIndex === null || !activeSlotDraft) {
+    return;
+  }
+
+  activeSlotDraft.milkAmountMl = normalizeMilkAmount(modalMilkAmount.value);
+
+  if (activeSlotDraft.milkAmountMl !== null) {
+    activeSlotDraft.milk = true;
+  }
+
   syncModalState();
 }
 
@@ -406,6 +445,10 @@ function updateModalNotes() {
 function saveActivityModal() {
   if (activeSlotIndex === null || !activeSlotDraft) {
     return;
+  }
+
+  if (!activeSlotDraft.milk) {
+    activeSlotDraft.milkAmountMl = null;
   }
 
   dayData[activeSlotIndex] = copySlot(activeSlotDraft);
@@ -447,9 +490,15 @@ function updateFeedStatus() {
 }
 
 function updateSummary() {
-  const milkCount = dayData.filter((slot) => slot.milk).length;
+  const milkEntries = dayData.filter((slot) => slot.milk);
+  const milkCount = milkEntries.length;
+  const totalMilkMl = milkEntries.reduce((total, slot) => total + (normalizeMilkAmount(slot.milkAmountMl) || 0), 0);
+  const averageMilkMl = milkCount ? Math.round(totalMilkMl / milkCount) : null;
 
-  milkTotal.textContent = milkCount;
+  milkTotal.textContent = `${totalMilkMl} ml`;
+  milkAverage.textContent = `${milkCount} ${milkCount === 1 ? "feed" : "feeds"} - avg ${
+    averageMilkMl === null ? "--" : `${averageMilkMl} ml`
+  }`;
   peeTotal.textContent = dayData.filter((slot) => slot.pee).length;
   poopTotal.textContent = dayData.filter((slot) => slot.poop).length;
   notesTotal.textContent = dayData.filter((slot) => slot.notes).length;
@@ -548,7 +597,7 @@ function escapeCsv(value) {
 }
 
 function exportCsv() {
-  const rows = ["Date,Time,Milk,Pee,Poop,Notes"];
+  const rows = ["Date,Time,Milk,Milk ML,Pee,Poop,Notes"];
   const dateKey = getDateKey(selectedDate);
 
   dayData.forEach((slot, index) => {
@@ -556,6 +605,7 @@ function exportCsv() {
       dateKey,
       getSlotTime(index),
       slot.milk ? "Yes" : "No",
+      slot.milk ? normalizeMilkAmount(slot.milkAmountMl) || "" : "",
       slot.pee ? "Yes" : "No",
       slot.poop ? "Yes" : "No",
       slot.notes
@@ -599,6 +649,7 @@ activityChoiceButtons.forEach((button) => {
   button.addEventListener("click", () => toggleActivity(button.dataset.type));
 });
 
+modalMilkAmount.addEventListener("input", updateModalMilkAmount);
 modalNotes.addEventListener("input", updateModalNotes);
 saveEntryButton.addEventListener("click", saveActivityModal);
 deleteEntryButton.addEventListener("click", deleteActivityEntry);
