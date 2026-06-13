@@ -299,12 +299,13 @@ h1 {
 
 .activity-icons {
   display: flex;
-  width: min(100%, 72px);
-  min-height: 34px;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 3px;
+  flex-wrap: nowrap;
+  gap: 2px;
   color: #8b95a3;
   font-size: 1.12rem;
   font-weight: 800;
@@ -331,11 +332,12 @@ h1 {
 
 .activity-icon-pill {
   display: grid;
-  width: 27px;
-  height: 27px;
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
   place-items: center;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 7px;
+  font-size: 0.88rem;
   line-height: 1;
 }
 
@@ -708,8 +710,8 @@ body.modal-open {
   }
 
   .activity-icons {
-    min-height: 28px;
-    font-size: 0.95rem;
+    min-height: 22px;
+    font-size: 0.88rem;
   }
 
   .activity-icons.tap-prompt {
@@ -719,9 +721,11 @@ body.modal-open {
   }
 
   .activity-icon-pill {
-    width: 24px;
-    height: 24px;
-    font-size: 0.9rem;
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+    border-radius: 5px;
+    font-size: 0.68rem;
   }
 
   .time-section-body {
