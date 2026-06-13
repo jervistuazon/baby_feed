@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.13.7";
+const APP_VERSION = "2026.06.13.8";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
@@ -37,6 +37,7 @@ const clearDayButton = document.getElementById("clearDay");
 const exportCsvButton = document.getElementById("exportCsv");
 const backupJsonButton = document.getElementById("backupJson");
 const settingsButton = document.getElementById("settingsButton");
+const settingsMenu = document.getElementById("settingsMenu");
 const activityModal = document.getElementById("activityModal");
 const modalDateLabel = document.getElementById("modalDateLabel");
 const modalTitle = document.getElementById("modalTitle");
@@ -579,6 +580,18 @@ function clearDay() {
   updateSummary();
 }
 
+function closeSettingsMenu() {
+  settingsMenu.hidden = true;
+  settingsButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleSettingsMenu() {
+  const isOpening = settingsMenu.hidden;
+
+  settingsMenu.hidden = !isOpening;
+  settingsButton.setAttribute("aria-expanded", String(isOpening));
+}
+
 function downloadFile(filename, content, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -636,10 +649,6 @@ function backupJson() {
   );
 }
 
-function openSettings() {
-  window.alert("Settings are coming soon. Use the action buttons below the tracker to export or clear data.");
-}
-
 function updateStickyOffset() {
   const panelHeight = dailyPanel?.offsetHeight || 0;
   document.documentElement.style.setProperty("--section-sticky-top", `${panelHeight + 10}px`);
@@ -661,18 +670,47 @@ activityModal.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !activityModal.hidden) {
+  if (event.key !== "Escape") {
+    return;
+  }
+
+  if (!activityModal.hidden) {
     closeActivityModal();
   }
+
+  if (!settingsMenu.hidden) {
+    closeSettingsMenu();
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (settingsMenu.hidden) {
+    return;
+  }
+
+  if (settingsMenu.contains(event.target) || settingsButton.contains(event.target)) {
+    return;
+  }
+
+  closeSettingsMenu();
 });
 
 previousDayButton.addEventListener("click", () => changeDay(-1));
 todayButton.addEventListener("click", goToToday);
 nextDayButton.addEventListener("click", () => changeDay(1));
-clearDayButton.addEventListener("click", clearDay);
-exportCsvButton.addEventListener("click", exportCsv);
-backupJsonButton.addEventListener("click", backupJson);
-settingsButton.addEventListener("click", openSettings);
+clearDayButton.addEventListener("click", () => {
+  closeSettingsMenu();
+  clearDay();
+});
+exportCsvButton.addEventListener("click", () => {
+  closeSettingsMenu();
+  exportCsv();
+});
+backupJsonButton.addEventListener("click", () => {
+  closeSettingsMenu();
+  backupJson();
+});
+settingsButton.addEventListener("click", toggleSettingsMenu);
 window.addEventListener("resize", updateStickyOffset);
 
 loadDay();

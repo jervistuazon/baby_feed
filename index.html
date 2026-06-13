@@ -5,13 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f5f7f8">
   <title>Anya Baby Tracker</title>
-  <link rel="stylesheet" href="style.css?v=2026.06.13.7">
+  <link rel="stylesheet" href="style.css?v=2026.06.13.8">
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
       <h1><span class="heart-icon" aria-hidden="true">A</span> Anya</h1>
-      <span class="app-subtitle">Baby Tracker</span>
+      <div class="header-actions">
+        <button id="settingsButton" class="settings-trigger" type="button" aria-expanded="false" aria-controls="settingsMenu" aria-label="Open settings">
+          <span aria-hidden="true">&#9881;</span>
+        </button>
+        <div id="settingsMenu" class="settings-menu" hidden>
+          <div class="settings-menu-header">
+            <strong>Settings</strong>
+            <span>Baby Tracker</span>
+          </div>
+          <button id="exportCsv" class="settings-menu-item" type="button">
+            <span aria-hidden="true">&#x1F4C4;</span>
+            <span>
+              <strong>Export selected day</strong>
+              <small>CSV for the day on screen</small>
+            </span>
+          </button>
+          <button id="backupJson" class="settings-menu-item" type="button">
+            <span aria-hidden="true">&#x1F4BE;</span>
+            <span>
+              <strong>Backup all saved days</strong>
+              <small>JSON copy for safekeeping</small>
+            </span>
+          </button>
+          <button id="clearDay" class="settings-menu-item danger-menu-item" type="button">
+            <span aria-hidden="true">&#x1F5D1;</span>
+            <span>
+              <strong>Clear selected day</strong>
+              <small>Remove entries for this date</small>
+            </span>
+          </button>
+        </div>
+      </div>
     </header>
 
     <section class="daily-panel" aria-label="Daily controls and summary">
@@ -67,12 +98,6 @@
 
     <main>
       <div id="trackerGrid" class="tracker-grid" aria-label="30 minute baby care tracker"></div>
-      <div class="utility-actions" aria-label="Tracker actions">
-        <button id="clearDay" class="utility-button danger-button" type="button"><span aria-hidden="true">&#x1F5D1;</span> Clear</button>
-        <button id="exportCsv" class="utility-button csv-button" type="button"><span aria-hidden="true">&#x1F4C4;</span> Export</button>
-        <button id="backupJson" class="utility-button json-button" type="button"><span aria-hidden="true">&#x1F4BE;</span> Backup</button>
-        <button id="settingsButton" class="utility-button settings-button" type="button"><span aria-hidden="true">&#9881;</span> Settings</button>
-      </div>
     </main>
   </div>
 
@@ -119,6 +144,6 @@
     </section>
   </div>
 
-  <script src="script.js?v=2026.06.13.7"></script>
+  <script src="script.js?v=2026.06.13.8"></script>
 </body>
 </html>
