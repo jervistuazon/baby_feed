@@ -1,22 +1,23 @@
-const APP_VERSION = "2026.06.14.1";
+const APP_VERSION = "2026.06.14.11";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
-const THREE_HOURS_IN_SLOTS = 6;
-const FEED_WINDOW_DELAY_SLOTS = 4;
-const FEED_WINDOW_DURATION_SLOTS = 2;
+const DAY_MINUTES = 24 * 60;
+const THREE_HOURS_IN_MINUTES = 3 * 60;
+const FEED_WINDOW_DELAY_MINUTES = 2 * 60;
+const FEED_WINDOW_DURATION_MINUTES = 60;
 const ICONS = {
   milk: "bottle",
   pee: "drop",
   poop: "diaper",
   notes: "note"
 };
-const TIME_SECTIONS = [
-  { label: "Night", start: 0, end: 11, detail: "12 AM-6 AM" },
-  { label: "Morning", start: 12, end: 23, detail: "6 AM-12 PM" },
-  { label: "Afternoon", start: 24, end: 35, detail: "12 PM-6 PM" },
-  { label: "Evening", start: 36, end: 47, detail: "6 PM-12 AM" }
-];
+const ACTIVITY_META = {
+  milk: { icon: ICONS.milk, className: "milk-icon", label: "Milk", title: "Milk feed" },
+  pee: { icon: ICONS.pee, className: "pee-icon", label: "Pee", title: "Pee" },
+  poop: { icon: ICONS.poop, className: "poop-icon", label: "Poop", title: "Poop" },
+  notes: { icon: ICONS.notes, className: "notes-icon", label: "Note", title: "Note" }
+};
 
 document.documentElement.dataset.appVersion = APP_VERSION;
 
@@ -26,6 +27,7 @@ const previousDayButton = document.getElementById("previousDay");
 const todayButton = document.getElementById("todayButton");
 const nextDayButton = document.getElementById("nextDay");
 const trackerGrid = document.getElementById("trackerGrid");
+const addEntryButton = document.getElementById("addEntryButton");
 const milkTotal = document.getElementById("milkTotal");
 const milkAverage = document.getElementById("milkAverage");
 const peeTotal = document.getElementById("peeTotal");
@@ -43,6 +45,7 @@ const settingsMenu = document.getElementById("settingsMenu");
 const activityModal = document.getElementById("activityModal");
 const modalDateLabel = document.getElementById("modalDateLabel");
 const modalTitle = document.getElementById("modalTitle");
+const modalEntryTime = document.getElementById("modalEntryTime");
 const closeModalButton = document.getElementById("closeModal");
 const saveEntryButton = document.getElementById("saveEntry");
 const deleteEntryButton = document.getElementById("deleteEntry");
@@ -51,9 +54,9 @@ const modalMilkAmount = document.getElementById("modalMilkAmount");
 const modalNotes = document.getElementById("modalNotes");
 
 let selectedDate = new Date();
-let dayData = createEmptyDay();
-let activeSlotIndex = null;
-let activeSlotDraft = null;
+let dayData = [];
+let activeEntryId = null;
+let activeEntryDraft = null;
 
 function createEmptySlot() {
   return {
@@ -65,8 +68,20 @@ function createEmptySlot() {
   };
 }
 
-function createEmptyDay() {
-  return Array.from({ length: TOTAL_SLOTS }, () => createEmptySlot());
+function createEntryId() {
+  return `entry-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createEmptyEntry(timeMinutes = getCurrentTimeMinutes()) {
+  return {
+    id: createEntryId(),
+    timeMinutes,
+    milk: false,
+    milkAmountMl: null,
+    pee: false,
+    poop: false,
+    notes: ""
+  };
 }
 
 function copySlot(slot) {
@@ -76,6 +91,18 @@ function copySlot(slot) {
     pee: Boolean(slot?.pee),
     poop: Boolean(slot?.poop),
     notes: slot?.notes || ""
+  };
+}
+
+function copyEntry(entry) {
+  return {
+    id: entry?.id || createEntryId(),
+    timeMinutes: normalizeTimeMinutes(entry?.timeMinutes),
+    milk: Boolean(entry?.milk),
+    milkAmountMl: normalizeMilkAmount(entry?.milkAmountMl),
+    pee: Boolean(entry?.pee),
+    poop: Boolean(entry?.poop),
+    notes: entry?.notes || ""
   };
 }
 
@@ -91,6 +118,16 @@ function normalizeMilkAmount(value) {
   }
 
   return Math.round(amount);
+}
+
+function normalizeTimeMinutes(value) {
+  const minutes = Number(value);
+
+  if (!Number.isFinite(minutes)) {
+    return 0;
+  }
+
+  return Math.min(DAY_MINUTES - 1, Math.max(0, Math.round(minutes)));
 }
 
 function getDateKey(date) {
@@ -138,177 +175,289 @@ function isToday(date) {
   return getDateKey(date) === getDateKey(new Date());
 }
 
-function getSlotTime(index) {
-  const totalMinutes = index * SLOT_MINUTES;
-  const hours24 = Math.floor(totalMinutes / 60) % 24;
-  const minutes = totalMinutes % 60;
+function getCurrentTimeMinutes() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function formatClockTime(timeMinutes) {
+  const minutesInDay = ((normalizeTimeMinutes(timeMinutes) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+  const hours24 = Math.floor(minutesInDay / 60);
+  const minutes = minutesInDay % 60;
   const period = hours24 >= 12 ? "PM" : "AM";
   const hours12 = hours24 % 12 || 12;
 
   return `${hours12}:${pad(minutes)} ${period}`;
 }
 
-function getSlotRangeLabel(startIndex, endIndex) {
-  const endLabel = endIndex >= TOTAL_SLOTS ? "Midnight" : getSlotTime(endIndex);
-  return `${getSlotTime(startIndex)}-${endLabel}`;
+function formatTimeRange(startMinutes, endMinutes) {
+  const endLabel = endMinutes >= DAY_MINUTES ? "Midnight" : formatClockTime(endMinutes);
+  return `${formatClockTime(startMinutes)}-${endLabel}`;
 }
 
-function getCurrentSlotIndex() {
-  const now = new Date();
-  const totalMinutes = now.getHours() * 60 + now.getMinutes();
-
-  return Math.min(TOTAL_SLOTS - 1, Math.floor(totalMinutes / SLOT_MINUTES));
+function toTimeInputValue(timeMinutes) {
+  const minutes = normalizeTimeMinutes(timeMinutes);
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
 }
 
-function normalizeLoadedData(savedData) {
-  const emptyDay = createEmptyDay();
+function fromTimeInputValue(value) {
+  const match = String(value).match(/^(\d{2}):(\d{2})$/);
 
-  if (!Array.isArray(savedData)) {
-    return emptyDay;
+  if (!match) {
+    return getCurrentTimeMinutes();
   }
 
-  return emptyDay.map((slot, index) => ({
-    ...slot,
-    ...(savedData[index] || {}),
-    milk: Boolean(savedData[index]?.milk),
-    milkAmountMl: normalizeMilkAmount(savedData[index]?.milkAmountMl),
-    pee: Boolean(savedData[index]?.pee),
-    poop: Boolean(savedData[index]?.poop),
-    notes: savedData[index]?.notes || ""
-  }));
+  return normalizeTimeMinutes(Number(match[1]) * 60 + Number(match[2]));
+}
+
+function entryHasContent(entry) {
+  return Boolean(entry?.milk || entry?.pee || entry?.poop || entry?.notes);
+}
+
+function compareEntries(a, b) {
+  if (a.timeMinutes !== b.timeMinutes) {
+    return a.timeMinutes - b.timeMinutes;
+  }
+
+  return String(a.id).localeCompare(String(b.id));
+}
+
+function getSortedEntries(entries = dayData) {
+  return [...entries].sort(compareEntries);
+}
+
+function isLegacySlotDay(savedData) {
+  return (
+    Array.isArray(savedData) &&
+    savedData.length === TOTAL_SLOTS &&
+    savedData.every((item) => !item || typeof item !== "object" || !Object.prototype.hasOwnProperty.call(item, "timeMinutes"))
+  );
+}
+
+function convertLegacySlotsToEntries(slots) {
+  return slots
+    .map((slot, index) => ({
+      id: `slot-${pad(index)}`,
+      timeMinutes: index * SLOT_MINUTES,
+      ...copySlot(slot)
+    }))
+    .filter(entryHasContent);
+}
+
+function normalizeEntries(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const usedIds = new Set();
+
+  return entries
+    .map((entry, index) => {
+      const normalized = copyEntry(entry);
+
+      if (usedIds.has(normalized.id)) {
+        normalized.id = `${normalized.id}-${index}`;
+      }
+
+      usedIds.add(normalized.id);
+      return normalized;
+    })
+    .filter(entryHasContent)
+    .sort(compareEntries);
+}
+
+function normalizeLoadedDay(savedData) {
+  if (!Array.isArray(savedData)) {
+    return { entries: [], migrated: false };
+  }
+
+  if (isLegacySlotDay(savedData)) {
+    return {
+      entries: normalizeEntries(convertLegacySlotsToEntries(savedData)),
+      migrated: true
+    };
+  }
+
+  return {
+    entries: normalizeEntries(savedData),
+    migrated: false
+  };
 }
 
 function loadDay() {
   const saved = localStorage.getItem(getStorageKey());
 
   try {
-    dayData = normalizeLoadedData(saved ? JSON.parse(saved) : null);
+    const normalized = normalizeLoadedDay(saved ? JSON.parse(saved) : null);
+    dayData = normalized.entries;
+
+    if (normalized.migrated) {
+      localStorage.setItem(getStorageKey(), JSON.stringify(dayData));
+    }
   } catch (error) {
-    dayData = createEmptyDay();
+    dayData = [];
   }
 
   selectedDateText.textContent = isToday(selectedDate) ? "Today" : formatDisplayDate(selectedDate);
   updateStickyOffset();
-  renderGrid();
+  renderTimeline();
   updateSummary();
 }
 
 function saveDay() {
-  localStorage.setItem(getStorageKey(), JSON.stringify(dayData));
+  dayData = normalizeEntries(dayData);
+
+  if (dayData.length) {
+    localStorage.setItem(getStorageKey(), JSON.stringify(dayData));
+  } else {
+    localStorage.removeItem(getStorageKey());
+  }
+
+  renderTimeline();
   updateSummary();
 }
 
-function getSlotActivities(slot) {
+function getEntryActivities(entry) {
   const activities = [];
 
-  if (slot.milk) {
-    activities.push({ icon: ICONS.milk, className: "milk-icon", label: "milk" });
+  if (entry.milk) {
+    activities.push(ACTIVITY_META.milk);
   }
 
-  if (slot.pee) {
-    activities.push({ icon: ICONS.pee, className: "pee-icon", label: "pee" });
+  if (entry.pee) {
+    activities.push(ACTIVITY_META.pee);
   }
 
-  if (slot.poop) {
-    activities.push({ icon: ICONS.poop, className: "poop-icon", label: "poop" });
+  if (entry.poop) {
+    activities.push(ACTIVITY_META.poop);
   }
 
-  if (slot.notes) {
-    activities.push({ icon: ICONS.notes, className: "notes-icon", label: "note" });
+  if (entry.notes) {
+    activities.push(ACTIVITY_META.notes);
   }
 
   return activities;
 }
 
-function getSlotSummary(slot) {
-  const labels = [];
+function getPrimaryActivity(entry) {
+  if (entry.milk) {
+    return ACTIVITY_META.milk;
+  }
 
-  if (slot.milk) {
-    const amount = normalizeMilkAmount(slot.milkAmountMl);
+  if (entry.pee) {
+    return ACTIVITY_META.pee;
+  }
+
+  if (entry.poop) {
+    return ACTIVITY_META.poop;
+  }
+
+  return ACTIVITY_META.notes;
+}
+
+function getEntryTitle(entry) {
+  return entry.notes || "";
+}
+
+function getEntrySummary(entry) {
+  const labels = [];
+  const amount = normalizeMilkAmount(entry.milkAmountMl);
+
+  if (entry.milk) {
     labels.push(amount ? `feed ${amount} ml` : "feed");
   }
 
-  if (slot.pee) {
+  if (entry.pee) {
     labels.push("pee");
   }
 
-  if (slot.poop) {
+  if (entry.poop) {
     labels.push("poop");
   }
 
-  if (slot.notes) {
-    labels.push(`note: ${slot.notes}`);
+  if (entry.notes) {
+    labels.push(`note: ${entry.notes}`);
   }
 
-  return labels.length ? labels.join(", ") : "no entries";
+  return labels.join(", ");
 }
 
-function getMilkIndexes() {
-  return dayData
-    .map((slot, index) => (slot.milk ? index : null))
-    .filter((index) => index !== null);
+function formatDuration(minutes) {
+  const wholeMinutes = Math.max(0, Math.round(minutes));
+
+  if (wholeMinutes < 2) {
+    return "now";
+  }
+
+  if (wholeMinutes < 60) {
+    return `${wholeMinutes} min`;
+  }
+
+  const hours = Math.floor(wholeMinutes / 60);
+  const remainder = wholeMinutes % 60;
+
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
-function getLastMilkIndex() {
-  const milkIndexes = getMilkIndexes();
+function getEntryProximityLabel(entry) {
+  if (!isToday(selectedDate)) {
+    return formatDisplayDate(selectedDate);
+  }
 
-  if (!milkIndexes.length) {
+  const difference = getCurrentTimeMinutes() - entry.timeMinutes;
+  const label = formatDuration(Math.abs(difference));
+
+  if (label === "now") {
+    return "Just now";
+  }
+
+  return difference >= 0 ? `${label} ago` : `in ${label}`;
+}
+
+function getMilkEntries() {
+  return getSortedEntries().filter((entry) => entry.milk);
+}
+
+function getLastMilkEntry() {
+  const milkEntries = getMilkEntries();
+
+  if (!milkEntries.length) {
     return null;
   }
 
   if (!isToday(selectedDate)) {
-    return milkIndexes[milkIndexes.length - 1];
+    return milkEntries[milkEntries.length - 1];
   }
 
-  const currentSlotIndex = getCurrentSlotIndex();
-  return [...milkIndexes].reverse().find((index) => index <= currentSlotIndex) ?? milkIndexes[milkIndexes.length - 1];
+  const currentTime = getCurrentTimeMinutes();
+  return [...milkEntries].reverse().find((entry) => entry.timeMinutes <= currentTime) ?? milkEntries[milkEntries.length - 1];
 }
 
 function getNextFeedWindow() {
-  const anchorIndex = getLastMilkIndex();
+  const anchorEntry = getLastMilkEntry();
 
-  if (anchorIndex === null) {
+  if (!anchorEntry) {
     return null;
   }
 
-  const start = anchorIndex + FEED_WINDOW_DELAY_SLOTS;
+  const start = anchorEntry.timeMinutes + FEED_WINDOW_DELAY_MINUTES;
 
-  if (start >= TOTAL_SLOTS) {
+  if (start >= DAY_MINUTES) {
     return null;
   }
 
   return {
-    anchorIndex,
+    anchorEntry,
     start,
-    end: Math.min(TOTAL_SLOTS - 1, start + FEED_WINDOW_DURATION_SLOTS - 1)
+    end: Math.min(DAY_MINUTES, start + FEED_WINDOW_DURATION_MINUTES)
   };
 }
 
-function getPromptSlotIndex() {
-  if (!isToday(selectedDate)) {
-    return null;
-  }
-
-  const currentIndex = getCurrentSlotIndex();
-
-  if (!getSlotActivities(dayData[currentIndex]).length) {
-    return currentIndex;
-  }
-
-  for (let index = currentIndex + 1; index < TOTAL_SLOTS; index += 1) {
-    if (!getSlotActivities(dayData[index]).length) {
-      return index;
-    }
-  }
-
-  return null;
-}
-
-function triggerSlotFeedback(cell) {
-  cell.classList.remove("slot-tapped");
+function triggerEntryFeedback(row) {
+  row.classList.remove("entry-tapped");
   window.requestAnimationFrame(() => {
-    cell.classList.add("slot-tapped");
-    window.setTimeout(() => cell.classList.remove("slot-tapped"), 260);
+    row.classList.add("entry-tapped");
+    window.setTimeout(() => row.classList.remove("entry-tapped"), 260);
   });
 }
 
@@ -325,104 +474,145 @@ function createSvgIcon(name, className) {
   return svg;
 }
 
-function createTimeCell(slot, index, promptSlotIndex, currentSlotIndex) {
-  const cell = document.createElement("button");
-  const activities = getSlotActivities(slot);
-  const hasEntry = activities.length > 0;
-  const isCurrent = isToday(selectedDate) && index === currentSlotIndex;
-  const isOldEmpty = isToday(selectedDate) && !hasEntry && index < currentSlotIndex;
-  const isPromptSlot = index === promptSlotIndex;
-
-  cell.type = "button";
-  cell.className = "time-cell";
-  cell.dataset.index = index;
-  cell.dataset.hasEntry = String(hasEntry);
-  cell.setAttribute("aria-label", `${getSlotTime(index)}: ${getSlotSummary(slot)}. Tap to edit.`);
-
-  if (isCurrent) {
-    cell.classList.add("is-current");
-  }
-
-  if (isOldEmpty) {
-    cell.classList.add("is-old-empty");
-  }
-
-  const timelineDot = document.createElement("span");
-  timelineDot.className = "timeline-dot";
-  timelineDot.setAttribute("aria-hidden", "true");
-
-  const time = document.createElement("span");
-  time.className = "time-label";
-  time.textContent = getSlotTime(index);
-
-  const iconStrip = document.createElement("span");
-  iconStrip.className = hasEntry ? "activity-icons" : "activity-icons is-empty";
-  iconStrip.setAttribute("aria-hidden", "true");
-
-  if (hasEntry) {
-    activities.forEach((activity) => {
-      iconStrip.appendChild(createSvgIcon(activity.icon, `activity-icon-pill ${activity.className}`));
-    });
-  } else if (isPromptSlot) {
-    iconStrip.classList.add("tap-prompt");
-    iconStrip.textContent = "Tap to add";
-  } else {
-    iconStrip.textContent = "+";
-  }
-
-  cell.append(timelineDot, time, iconStrip);
-  cell.addEventListener("click", () => {
-    triggerSlotFeedback(cell);
-    openActivityModal(index);
-  });
-
-  return cell;
+function createActivityBadge(activity) {
+  const badge = document.createElement("span");
+  badge.className = `activity-badge ${activity.className}`;
+  badge.setAttribute("aria-hidden", "true");
+  badge.appendChild(createSvgIcon(activity.icon, "activity-icon-pill"));
+  return badge;
 }
 
-function renderGrid() {
-  const currentSlotIndex = getCurrentSlotIndex();
-  const promptSlotIndex = getPromptSlotIndex();
+function createEntryRow(entry) {
+  const row = document.createElement("button");
+  const activities = getEntryActivities(entry);
+  const primaryActivity = getPrimaryActivity(entry);
+  const milkAmount = normalizeMilkAmount(entry.milkAmountMl);
+
+  row.type = "button";
+  row.className = `timeline-entry ${primaryActivity.className.replace("-icon", "-entry")}`;
+  row.dataset.entryId = entry.id;
+  row.setAttribute("aria-label", `${formatClockTime(entry.timeMinutes)}: ${getEntrySummary(entry)}. Tap to edit.`);
+
+  const timeBlock = document.createElement("span");
+  timeBlock.className = "entry-time";
+
+  const timeText = document.createElement("strong");
+  timeText.textContent = formatClockTime(entry.timeMinutes);
+
+  const proximity = document.createElement("small");
+  proximity.textContent = getEntryProximityLabel(entry);
+
+  timeBlock.append(timeText, proximity);
+
+  const iconStrip = document.createElement("span");
+  iconStrip.className = "entry-icons";
+  activities.forEach((activity) => iconStrip.appendChild(createActivityBadge(activity)));
+
+  const content = document.createElement("span");
+  content.className = "entry-content";
+
+  const title = document.createElement("span");
+  title.textContent = getEntryTitle(entry);
+
+  if (title.textContent) {
+    content.append(title);
+  }
+
+  const meta = document.createElement("span");
+  meta.className = "entry-meta";
+
+  if (entry.milk && milkAmount) {
+    const amount = document.createElement("strong");
+    amount.textContent = `${milkAmount} ml`;
+    meta.appendChild(amount);
+  }
+
+  meta.appendChild(createSvgIcon("chevron", "entry-chevron"));
+
+  row.append(timeBlock, iconStrip, content, meta);
+  row.addEventListener("click", () => {
+    triggerEntryFeedback(row);
+    openActivityModal(entry.id);
+  });
+
+  return row;
+}
+
+function createEmptyTimeline() {
+  const emptyState = document.createElement("div");
+  emptyState.className = "empty-timeline";
+
+  const icon = document.createElement("span");
+  icon.className = "empty-timeline-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.appendChild(createSvgIcon("plus", "app-icon"));
+
+  const text = document.createElement("div");
+  const title = document.createElement("strong");
+  const detail = document.createElement("span");
+
+  title.textContent = "No entries yet";
+  detail.textContent = "Add the first entry for this day.";
+  text.append(title, detail);
+  emptyState.append(icon, text);
+  return emptyState;
+}
+
+function renderTimeline() {
+  const entries = getSortedEntries();
 
   trackerGrid.innerHTML = "";
 
-  TIME_SECTIONS.forEach((section) => {
-    const sectionElement = document.createElement("section");
-    sectionElement.className = `time-section ${section.label.toLowerCase()}-section`;
-    sectionElement.setAttribute("aria-label", `${section.label} tracker slots, ${section.detail}`);
+  if (!entries.length) {
+    trackerGrid.appendChild(createEmptyTimeline());
+    return;
+  }
 
-    const sectionBody = document.createElement("div");
-    sectionBody.className = "time-section-body";
-
-    for (let index = section.start; index <= section.end; index += 1) {
-      sectionBody.appendChild(createTimeCell(dayData[index], index, promptSlotIndex, currentSlotIndex));
-    }
-
-    sectionElement.append(sectionBody);
-    trackerGrid.appendChild(sectionElement);
+  entries.forEach((entry) => {
+    trackerGrid.appendChild(createEntryRow(entry));
   });
 
-  highlightFeedingGaps();
+  window.requestAnimationFrame(() => {
+    trackerGrid.lastElementChild?.scrollIntoView({ block: "nearest" });
+  });
 }
 
 function syncModalState() {
-  if (activeSlotIndex === null || !activeSlotDraft) {
+  if (!activeEntryDraft) {
     return;
   }
 
   modalDateLabel.textContent = formatFullDate(selectedDate);
-  modalTitle.textContent = getSlotTime(activeSlotIndex);
-  modalMilkAmount.value = activeSlotDraft.milkAmountMl ?? "";
-  modalNotes.value = activeSlotDraft.notes;
+  modalTitle.textContent = activeEntryId ? "Edit entry" : "New entry";
+  modalEntryTime.value = toTimeInputValue(activeEntryDraft.timeMinutes);
+  modalMilkAmount.value = activeEntryDraft.milkAmountMl ?? "";
+  modalNotes.value = activeEntryDraft.notes;
+  deleteEntryButton.textContent = activeEntryId ? "Delete entry" : "Discard";
 
   activityChoiceButtons.forEach((button) => {
     const type = button.dataset.type;
-    button.setAttribute("aria-pressed", String(activeSlotDraft[type]));
+    button.setAttribute("aria-pressed", String(activeEntryDraft[type]));
   });
 }
 
-function openActivityModal(index) {
-  activeSlotIndex = index;
-  activeSlotDraft = copySlot(dayData[index]);
+function openActivityModal(entryId) {
+  const entry = dayData.find((item) => item.id === entryId);
+
+  if (!entry) {
+    return;
+  }
+
+  activeEntryId = entryId;
+  activeEntryDraft = copyEntry(entry);
+  syncModalState();
+  activityModal.hidden = false;
+  document.body.classList.add("modal-open");
+  activityChoiceButtons[0]?.focus();
+}
+
+function openNewEntryModal() {
+  activeEntryId = null;
+  activeEntryDraft = createEmptyEntry(getCurrentTimeMinutes());
   syncModalState();
   activityModal.hidden = false;
   document.body.classList.add("modal-open");
@@ -432,157 +622,119 @@ function openActivityModal(index) {
 function closeActivityModal() {
   activityModal.hidden = true;
   document.body.classList.remove("modal-open");
-  activeSlotIndex = null;
-  activeSlotDraft = null;
+  activeEntryId = null;
+  activeEntryDraft = null;
 }
 
 function toggleActivity(type) {
-  if (activeSlotIndex === null || !activeSlotDraft) {
+  if (!activeEntryDraft) {
     return;
   }
 
-  activeSlotDraft[type] = !activeSlotDraft[type];
+  activeEntryDraft[type] = !activeEntryDraft[type];
 
-  if (type === "milk" && !activeSlotDraft.milk) {
-    activeSlotDraft.milkAmountMl = null;
+  if (type === "milk" && !activeEntryDraft.milk) {
+    activeEntryDraft.milkAmountMl = null;
   }
 
   syncModalState();
 }
 
-function updateModalMilkAmount() {
-  if (activeSlotIndex === null || !activeSlotDraft) {
+function updateModalTime() {
+  if (!activeEntryDraft) {
     return;
   }
 
-  activeSlotDraft.milkAmountMl = normalizeMilkAmount(modalMilkAmount.value);
+  activeEntryDraft.timeMinutes = fromTimeInputValue(modalEntryTime.value);
+}
 
-  if (activeSlotDraft.milkAmountMl !== null) {
-    activeSlotDraft.milk = true;
+function updateModalMilkAmount() {
+  if (!activeEntryDraft) {
+    return;
+  }
+
+  activeEntryDraft.milkAmountMl = normalizeMilkAmount(modalMilkAmount.value);
+
+  if (activeEntryDraft.milkAmountMl !== null) {
+    activeEntryDraft.milk = true;
   }
 
   syncModalState();
 }
 
 function updateModalNotes() {
-  if (activeSlotIndex === null || !activeSlotDraft) {
+  if (!activeEntryDraft) {
     return;
   }
 
-  activeSlotDraft.notes = modalNotes.value;
+  activeEntryDraft.notes = modalNotes.value;
 }
 
 function saveActivityModal() {
-  if (activeSlotIndex === null || !activeSlotDraft) {
+  if (!activeEntryDraft) {
     return;
   }
 
-  if (!activeSlotDraft.milk) {
-    activeSlotDraft.milkAmountMl = null;
+  if (!activeEntryDraft.milk) {
+    activeEntryDraft.milkAmountMl = null;
   }
 
-  dayData[activeSlotIndex] = copySlot(activeSlotDraft);
+  const entry = copyEntry(activeEntryDraft);
+  entry.notes = entry.notes.trim();
+
+  if (!entryHasContent(entry)) {
+    window.alert("Choose at least one activity or add a note.");
+    return;
+  }
+
+  if (activeEntryId) {
+    dayData = dayData.map((item) => (item.id === activeEntryId ? entry : item));
+  } else {
+    dayData = [...dayData, entry];
+  }
+
   saveDay();
-  renderGrid();
   closeActivityModal();
 }
 
 function deleteActivityEntry() {
-  if (activeSlotIndex === null) {
-    return;
+  if (activeEntryId) {
+    dayData = dayData.filter((entry) => entry.id !== activeEntryId);
+    saveDay();
   }
 
-  dayData[activeSlotIndex] = createEmptySlot();
-  saveDay();
-  renderGrid();
   closeActivityModal();
 }
 
 function updateFeedStatus() {
-  const lastIndex = getLastMilkIndex();
+  const lastEntry = getLastMilkEntry();
 
-  if (lastIndex === null) {
+  if (!lastEntry) {
     lastMilkTime.textContent = "--";
     nextFeedTime.textContent = "--";
     return;
   }
 
   const nextWindow = getNextFeedWindow();
-  const nextStart = nextWindow?.start ?? null;
-  const nextEnd = nextWindow ? nextWindow.end + 1 : null;
 
-  lastMilkTime.textContent = getSlotTime(lastIndex);
-  nextFeedTime.textContent = nextStart === null ? "--" : getSlotRangeLabel(nextStart, nextEnd);
-
-  if (!isToday(selectedDate)) {
-    return;
-  }
+  lastMilkTime.textContent = formatClockTime(lastEntry.timeMinutes);
+  nextFeedTime.textContent = nextWindow ? formatTimeRange(nextWindow.start, nextWindow.end) : "--";
 }
 
 function updateSummary() {
-  const milkEntries = dayData.filter((slot) => slot.milk);
+  const milkEntries = dayData.filter((entry) => entry.milk);
   const milkCount = milkEntries.length;
-  const totalMilkMl = milkEntries.reduce((total, slot) => total + (normalizeMilkAmount(slot.milkAmountMl) || 0), 0);
+  const totalMilkMl = milkEntries.reduce((total, entry) => total + (normalizeMilkAmount(entry.milkAmountMl) || 0), 0);
   const averageMilkMl = milkCount ? Math.round(totalMilkMl / milkCount) : null;
 
   milkTotal.textContent = `${totalMilkMl} ml`;
-  milkAverage.textContent = `${milkCount} ${milkCount === 1 ? "feed" : "feeds"} - avg ${
+  milkAverage.textContent = `${milkCount} ${milkCount === 1 ? "feed" : "feeds"}\navg ${
     averageMilkMl === null ? "--" : `${averageMilkMl} ml`
   }`;
-  peeTotal.textContent = dayData.filter((slot) => slot.pee).length;
-  poopTotal.textContent = dayData.filter((slot) => slot.poop).length;
-  notesTotal.textContent = dayData.filter((slot) => slot.notes).length;
+  peeTotal.textContent = dayData.filter((entry) => entry.pee).length;
+  poopTotal.textContent = dayData.filter((entry) => entry.poop).length;
+  notesTotal.textContent = dayData.filter((entry) => entry.notes).length;
   updateFeedStatus();
-}
-
-function highlightFeedingGaps() {
-  const cells = trackerGrid.querySelectorAll(".time-cell");
-  cells.forEach((cell) => {
-    cell.classList.remove("warning-gap", "next-feed-window");
-  });
-
-  const milkIndexes = getMilkIndexes();
-  const warningRanges = [];
-
-  for (let i = 0; i < milkIndexes.length - 1; i += 1) {
-    const start = milkIndexes[i];
-    const end = milkIndexes[i + 1];
-
-    if (end - start > THREE_HOURS_IN_SLOTS) {
-      warningRanges.push({ start: start + 1, end: end - 1 });
-    }
-  }
-
-  if (milkIndexes.length > 0) {
-    const firstMilk = milkIndexes[0];
-    const lastMilk = milkIndexes[milkIndexes.length - 1];
-
-    if (firstMilk > THREE_HOURS_IN_SLOTS) {
-      warningRanges.push({ start: 0, end: firstMilk - 1 });
-    }
-
-    if (TOTAL_SLOTS - 1 - lastMilk > THREE_HOURS_IN_SLOTS) {
-      warningRanges.push({ start: lastMilk + 1, end: TOTAL_SLOTS - 1 });
-    }
-  }
-
-  warningRanges.forEach(({ start, end }) => {
-    for (let index = start; index <= end; index += 1) {
-      cells[index]?.classList.add("warning-gap");
-    }
-  });
-
-  const nextFeedWindow = getNextFeedWindow();
-  if (nextFeedWindow) {
-    for (let index = nextFeedWindow.start; index <= nextFeedWindow.end; index += 1) {
-      const cell = cells[index];
-
-      if (cell) {
-        cell.classList.add("next-feed-window");
-        cell.setAttribute("aria-label", `${cell.getAttribute("aria-label")} Suggested next feeding window.`);
-      }
-    }
-  }
 }
 
 function changeDay(offset) {
@@ -604,8 +756,8 @@ function clearDay() {
   }
 
   localStorage.removeItem(getStorageKey());
-  dayData = createEmptyDay();
-  renderGrid();
+  dayData = [];
+  renderTimeline();
   updateSummary();
 }
 
@@ -642,15 +794,15 @@ function exportCsv() {
   const rows = ["Date,Time,Milk,Milk ML,Pee,Poop,Notes"];
   const dateKey = getDateKey(selectedDate);
 
-  dayData.forEach((slot, index) => {
+  getSortedEntries().forEach((entry) => {
     rows.push([
       dateKey,
-      getSlotTime(index),
-      slot.milk ? "Yes" : "No",
-      slot.milk ? normalizeMilkAmount(slot.milkAmountMl) || "" : "",
-      slot.pee ? "Yes" : "No",
-      slot.poop ? "Yes" : "No",
-      slot.notes
+      formatClockTime(entry.timeMinutes),
+      entry.milk ? "Yes" : "No",
+      entry.milk ? normalizeMilkAmount(entry.milkAmountMl) || "" : "",
+      entry.pee ? "Yes" : "No",
+      entry.poop ? "Yes" : "No",
+      entry.notes
     ].map(escapeCsv).join(","));
   });
 
@@ -661,13 +813,14 @@ function backupJson() {
   const backup = {};
 
   Object.keys(localStorage)
-    .filter((key) => key.startsWith(TRACKER_PREFIX))
+    .filter(isTrackerStorageKey)
     .sort()
     .forEach((key) => {
       try {
-        backup[key] = JSON.parse(localStorage.getItem(key));
+        const normalized = normalizeLoadedDay(JSON.parse(localStorage.getItem(key)));
+        backup[key] = normalized.entries;
       } catch (error) {
-        backup[key] = localStorage.getItem(key);
+        backup[key] = [];
       }
     });
 
@@ -704,7 +857,7 @@ function getImportableTrackerEntries(backup) {
     .filter(([key]) => isTrackerStorageKey(key))
     .map(([key, value]) => {
       const day = parseBackupDay(value);
-      return day ? { key, day: normalizeLoadedData(day) } : null;
+      return day ? { key, day: normalizeLoadedDay(day).entries } : null;
     })
     .filter(Boolean)
     .sort((a, b) => a.key.localeCompare(b.key));
@@ -739,7 +892,11 @@ function importJsonFile(file) {
       }
 
       entries.forEach(({ key, day }) => {
-        localStorage.setItem(key, JSON.stringify(day));
+        if (day.length) {
+          localStorage.setItem(key, JSON.stringify(day));
+        } else {
+          localStorage.removeItem(key);
+        }
       });
 
       loadDay();
@@ -772,6 +929,8 @@ activityChoiceButtons.forEach((button) => {
   button.addEventListener("click", () => toggleActivity(button.dataset.type));
 });
 
+addEntryButton.addEventListener("click", openNewEntryModal);
+modalEntryTime.addEventListener("input", updateModalTime);
 modalMilkAmount.addEventListener("input", updateModalMilkAmount);
 modalNotes.addEventListener("input", updateModalNotes);
 saveEntryButton.addEventListener("click", saveActivityModal);

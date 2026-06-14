@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#fff7f8">
   <title>Anya Baby Tracker</title>
-  <link rel="stylesheet" href="style.css?v=2026.06.14.1">
+  <link rel="stylesheet" href="style.css?v=2026.06.14.11">
 </head>
 <body>
   <svg class="icon-sprite" aria-hidden="true" focusable="false">
@@ -14,8 +14,8 @@
       <path d="M16.6 7.3c1.2.2 2 .9 2.3 2.1" fill="none" />
     </symbol>
     <symbol id="icon-gear" viewBox="0 0 24 24">
-      <path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Z" />
-      <path d="m19.1 14.5 1.4 1.1-1.8 3.1-1.7-.7a7 7 0 0 1-1.8 1l-.3 1.8H9.3L9 19a7 7 0 0 1-1.8-1l-1.7.7-1.8-3.1 1.4-1.1a7.5 7.5 0 0 1 0-2l-1.4-1.1 1.8-3.1 1.7.7A7 7 0 0 1 9 8l.3-1.8h5.6l.3 1.8a7 7 0 0 1 1.8 1l1.7-.7 1.8 3.1-1.4 1.1a7.5 7.5 0 0 1 0 2Z" />
+      <path d="M9.7 3.4h4.6l.5 2.1c.5.2 1 .4 1.5.6l1.9-1.1 2.3 4-1.7 1.4c.1.5.1 1 .1 1.5s0 1-.1 1.5l1.7 1.4-2.3 4-1.9-1.1c-.5.3-1 .5-1.5.6l-.5 2.1H9.7l-.5-2.1c-.5-.2-1-.4-1.5-.6l-1.9 1.1-2.3-4 1.7-1.4c-.1-.5-.1-1-.1-1.5s0-1 .1-1.5L3.5 9l2.3-4 1.9 1.1c.5-.3 1-.5 1.5-.6l.5-2.1Z" />
+      <circle cx="12" cy="12" r="3.1" />
     </symbol>
     <symbol id="icon-bottle" viewBox="0 0 24 24">
       <path d="M10 3h4" />
@@ -61,6 +61,28 @@
       <path d="M7.2 7.2 8 20h8l.8-12.8" />
       <path d="M10.2 11v5" />
       <path d="M13.8 11v5" />
+    </symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.2v5l3.4 2.1" />
+    </symbol>
+    <symbol id="icon-calendar" viewBox="0 0 24 24">
+      <path d="M6.5 4.5v3" />
+      <path d="M17.5 4.5v3" />
+      <path d="M4.8 8.5h14.4" />
+      <path d="M6.5 6h11A1.8 1.8 0 0 1 19.3 7.8v10A1.8 1.8 0 0 1 17.5 19.6h-11a1.8 1.8 0 0 1-1.8-1.8v-10A1.8 1.8 0 0 1 6.5 6Z" />
+      <path d="M8.2 12h.1" />
+      <path d="M12 12h.1" />
+      <path d="M15.8 12h.1" />
+      <path d="M8.2 15.3h.1" />
+      <path d="M12 15.3h.1" />
+    </symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24">
+      <path d="m9 5 7 7-7 7" />
     </symbol>
   </svg>
   <div class="app-shell">
@@ -149,20 +171,35 @@
 
       <div id="feedStatusCard" class="feed-status-card" aria-live="polite">
         <div class="feed-status-detail">
-          <small>Last feed</small>
-          <strong id="lastMilkTime">--</strong>
+          <span class="feed-status-icon" aria-hidden="true"><svg class="icon-glyph"><use href="#icon-clock"></use></svg></span>
+          <div>
+            <small>Last feed</small>
+            <strong id="lastMilkTime">--</strong>
+          </div>
         </div>
         <div class="feed-status-detail">
-          <small>Next feed</small>
-          <strong id="nextFeedTime">--</strong>
+          <span class="feed-status-icon" aria-hidden="true"><svg class="icon-glyph"><use href="#icon-calendar"></use></svg></span>
+          <div>
+            <small>Next feed</small>
+            <strong id="nextFeedTime">--</strong>
+          </div>
         </div>
       </div>
     </section>
 
     <main>
-      <div id="trackerGrid" class="tracker-grid" aria-label="30 minute baby care tracker"></div>
+      <div class="timeline-toolbar">
+        <span class="timeline-toolbar-icon" aria-hidden="true"><svg class="icon-glyph"><use href="#icon-file"></use></svg></span>
+        <strong>Entries for the day</strong>
+      </div>
+      <div id="trackerGrid" class="tracker-timeline" aria-label="Daily baby care timeline"></div>
     </main>
   </div>
+
+  <button id="addEntryButton" class="add-entry-button floating-add-entry" type="button" aria-label="Add entry at the current time">
+    <svg class="app-icon" aria-hidden="true"><use href="#icon-plus"></use></svg>
+    <span>Add entry</span>
+  </button>
 
   <div id="activityModal" class="modal-backdrop" hidden>
     <section class="activity-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -189,6 +226,9 @@
         </button>
       </div>
 
+      <label class="notes-label" for="modalEntryTime">Time</label>
+      <input id="modalEntryTime" class="notes-input time-input" type="time" required>
+
       <div class="milk-amount-field">
         <label class="notes-label" for="modalMilkAmount">Milk amount</label>
         <div class="amount-input-wrap">
@@ -207,6 +247,6 @@
     </section>
   </div>
 
-  <script src="script.js?v=2026.06.14.1"></script>
+  <script src="script.js?v=2026.06.14.11"></script>
 </body>
 </html>
