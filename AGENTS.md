@@ -2,22 +2,22 @@
 
 ## App Overview
 
-Anya Baby Tracker is a small mobile-first static web app for tracking newborn care throughout a day. It is built with plain HTML, CSS, and vanilla JavaScript, and it stores all data locally in the user's browser with `localStorage`.
+Anya Baby Tracker is a small mobile-first static web app for tracking newborn care throughout a day. It is built with plain HTML, CSS, and vanilla JavaScript, and it currently stores all data locally in the user's browser with `localStorage`.
 
-The main screen shows one selected day split into 30-minute time slots. Each slot can record:
+The main screen shows one selected day as a chronological timeline of entries. Each entry has a specific time and can record:
 
 - Milk feeding, with an optional amount in ml
 - Pee
 - Poop
 - A short note
 
-The app also shows daily summary totals, last feed time, and a suggested next feeding window. It has no backend, account system, database, install step, or build step.
+The app also shows daily summary totals, last feed time, and a suggested next feeding window. It has no backend, account system, database, install step, or build step unless backend or sync functionality is explicitly requested.
 
 ## File Map
 
-- `index.html` contains the app shell, settings menu, summary area, tracker grid mount point, and entry modal markup.
-- `style.css` contains the mobile-first visual design, responsive layout, modal styling, settings menu styling, and slot state styling.
-- `script.js` contains app state, localStorage persistence, date navigation, grid rendering, summaries, CSV export, JSON backup/import, and feeding-window highlighting.
+- `index.html` contains the app shell, settings menu, summary area, timeline mount point, floating add-entry button, and entry modal markup.
+- `style.css` contains the mobile-first visual design, responsive layout, modal styling, settings menu styling, timeline styling, and entry state styling.
+- `script.js` contains app state, localStorage persistence, date navigation, timeline rendering, summaries, CSV export, JSON backup/import, legacy slot migration, and feeding-window calculations.
 - `vercel.json` configures the static Vercel deployment.
 - `run-localhost.bat` and `serve-localhost.ps1` are local convenience launchers.
 
@@ -25,10 +25,12 @@ The app also shows daily summary totals, last feed time, and a suggested next fe
 
 Tracker days are stored in `localStorage` using keys like `anya-tracker-2026-06-13`.
 
-Each saved day is an array of 48 slot objects, one for each 30-minute block:
+Each current saved day is an array of entry objects:
 
 ```json
 {
+  "id": "entry-lx000000-abc123",
+  "timeMinutes": 510,
   "milk": false,
   "milkAmountMl": null,
   "pee": false,
@@ -37,12 +39,14 @@ Each saved day is an array of 48 slot objects, one for each 30-minute block:
 }
 ```
 
-When loading imported or older data, keep using the existing normalization helpers in `script.js` so missing fields and invalid milk amounts are handled consistently.
+Entries are normalized, filtered to meaningful content, and sorted by `timeMinutes` and `id` before saving. The app still supports older 48-slot backup data: `normalizeLoadedDay()` detects legacy slot arrays and converts non-empty slots into entries with IDs like `slot-00`.
+
+When loading imported or older data, keep using the existing normalization helpers in `script.js` so missing fields, duplicate IDs, invalid times, invalid milk amounts, and legacy slot arrays are handled consistently.
 
 ## User Flows
 
-- Tap a time slot to open the activity modal.
-- Select milk, pee, poop, enter an optional milk amount, or add a short note.
+- Tap Add entry to create a new timed entry, or tap an existing timeline entry to edit it.
+- Select milk, pee, poop, set the entry time, enter an optional milk amount, or add a short note.
 - Use Prev, Today, and Next to move between days.
 - Use Settings to export the selected day as CSV, back up all saved days as JSON, import a JSON backup, or clear the selected day.
 
@@ -50,8 +54,9 @@ When loading imported or older data, keep using the existing normalization helpe
 
 - Prefer small, direct changes. This app intentionally avoids frameworks and dependencies.
 - Keep behavior client-only unless the user explicitly asks for backend or sync functionality.
-- Preserve the backup JSON shape unless intentionally doing a migration.
+- Preserve the backup JSON shape unless intentionally doing a migration: an object whose keys are tracker-day localStorage keys and whose values are normalized day-entry arrays.
 - Be careful with `localStorage` keys. Only tracker-day keys should be imported, exported, or cleared by tracker features.
+- If backend sync is added, prefer treating cloud data as the source of truth after sign-in while preserving local import/export as migration and backup tools.
 - Test changes by opening `index.html` directly or serving the folder locally; there is no build command.
 
 ## Cache Busting
