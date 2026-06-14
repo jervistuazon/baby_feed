@@ -735,12 +735,28 @@ main {
   grid-template-columns: 36px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
+  width: 100%;
   min-height: 72px;
   padding: 12px;
   border: 1px solid rgba(239, 127, 163, 0.12);
   border-radius: 14px;
   background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  appearance: none;
   box-shadow: 0 14px 34px rgba(132, 93, 122, 0.08);
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.empty-timeline:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(132, 93, 122, 0.11);
+}
+
+.empty-timeline:active {
+  transform: scale(0.99);
 }
 
 .empty-timeline-icon {
@@ -762,18 +778,23 @@ main {
   stroke-width: 2.2;
 }
 
-.empty-timeline strong,
-.empty-timeline span {
+.empty-timeline > div {
+  align-self: center;
+  min-width: 0;
+}
+
+.empty-timeline > div > strong,
+.empty-timeline > div > span {
   display: block;
 }
 
-.empty-timeline strong {
+.empty-timeline > div > strong {
   color: var(--ink);
   font-size: 0.88rem;
   font-weight: 700;
 }
 
-.empty-timeline span {
+.empty-timeline > div > span {
   margin-top: 3px;
   color: var(--muted);
   font-size: 0.7rem;

@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.14.18";
+const APP_VERSION = "2026.06.14.21";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
@@ -138,6 +138,12 @@ function getStorageKey(date = selectedDate) {
   return `${TRACKER_PREFIX}${getDateKey(date)}`;
 }
 
+function getDateWithDayOffset(date, offset) {
+  const shiftedDate = new Date(date);
+  shiftedDate.setDate(shiftedDate.getDate() + offset);
+  return shiftedDate;
+}
+
 function isTrackerStorageKey(key) {
   const match = String(key).match(/^anya-tracker-(\d{4})-(\d{2})-(\d{2})$/);
 
@@ -181,18 +187,19 @@ function getCurrentTimeMinutes() {
 }
 
 function formatClockTime(timeMinutes) {
-  const minutesInDay = ((normalizeTimeMinutes(timeMinutes) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+  const minutes = Number(timeMinutes);
+  const roundedMinutes = Number.isFinite(minutes) ? Math.round(minutes) : 0;
+  const minutesInDay = ((roundedMinutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
   const hours24 = Math.floor(minutesInDay / 60);
-  const minutes = minutesInDay % 60;
+  const displayMinutes = minutesInDay % 60;
   const period = hours24 >= 12 ? "PM" : "AM";
   const hours12 = hours24 % 12 || 12;
 
-  return `${hours12}:${pad(minutes)} ${period}`;
+  return `${hours12}:${pad(displayMinutes)} ${period}`;
 }
 
 function formatTimeRange(startMinutes, endMinutes) {
-  const endLabel = endMinutes >= DAY_MINUTES ? "Midnight" : formatClockTime(endMinutes);
-  return `${formatClockTime(startMinutes)}-${endLabel}`;
+  return `${formatClockTime(startMinutes)}-${formatClockTime(endMinutes)}`;
 }
 
 function toTimeInputValue(timeMinutes) {
@@ -418,19 +425,55 @@ function getMilkEntries() {
   return getSortedEntries().filter((entry) => entry.milk);
 }
 
+function loadEntriesForDate(date) {
+  const saved = localStorage.getItem(getStorageKey(date));
+
+  try {
+    return normalizeLoadedDay(saved ? JSON.parse(saved) : null).entries;
+  } catch (error) {
+    return [];
+  }
+}
+
+function getLastMilkEntryForDate(date, dayOffset) {
+  const milkEntries = getSortedEntries(loadEntriesForDate(date)).filter((entry) => entry.milk);
+  const lastEntry = milkEntries[milkEntries.length - 1];
+
+  return lastEntry ? { ...lastEntry, dayOffset } : null;
+}
+
 function getLastMilkEntry() {
   const milkEntries = getMilkEntries();
 
   if (!milkEntries.length) {
-    return null;
+    return getLastMilkEntryForDate(getDateWithDayOffset(selectedDate, -1), -1);
   }
 
   if (!isToday(selectedDate)) {
-    return milkEntries[milkEntries.length - 1];
+    return { ...milkEntries[milkEntries.length - 1], dayOffset: 0 };
   }
 
   const currentTime = getCurrentTimeMinutes();
-  return [...milkEntries].reverse().find((entry) => entry.timeMinutes <= currentTime) ?? milkEntries[milkEntries.length - 1];
+  const currentDayEntry = [...milkEntries].reverse().find((entry) => entry.timeMinutes <= currentTime);
+
+  if (currentDayEntry) {
+    return { ...currentDayEntry, dayOffset: 0 };
+  }
+
+  return getLastMilkEntryForDate(getDateWithDayOffset(selectedDate, -1), -1) ?? {
+    ...milkEntries[milkEntries.length - 1],
+    dayOffset: 0
+  };
+}
+
+function formatLastMilkTime(entry) {
+  if (!entry || entry.dayOffset === 0) {
+    return entry ? formatClockTime(entry.timeMinutes) : "--";
+  }
+
+  const entryDate = getDateWithDayOffset(selectedDate, entry.dayOffset);
+  const dateLabel = entry.dayOffset === -1 && isToday(selectedDate) ? "Yesterday" : formatDisplayDate(entryDate);
+  return `${dateLabel} ${formatClockTime(entry.timeMinutes)}`;
 }
 
 function getNextFeedWindow() {
@@ -440,16 +483,18 @@ function getNextFeedWindow() {
     return null;
   }
 
-  const start = anchorEntry.timeMinutes + FEED_WINDOW_DELAY_MINUTES;
+  const anchorTime = anchorEntry.timeMinutes + (anchorEntry.dayOffset || 0) * DAY_MINUTES;
+  const start = anchorTime + FEED_WINDOW_DELAY_MINUTES;
+  const end = start + FEED_WINDOW_DURATION_MINUTES;
 
-  if (start >= DAY_MINUTES) {
+  if (end <= 0) {
     return null;
   }
 
   return {
     anchorEntry,
     start,
-    end: Math.min(DAY_MINUTES, start + FEED_WINDOW_DURATION_MINUTES)
+    end
   };
 }
 
@@ -539,8 +584,10 @@ function createEntryRow(entry) {
 }
 
 function createEmptyTimeline() {
-  const emptyState = document.createElement("div");
+  const emptyState = document.createElement("button");
+  emptyState.type = "button";
   emptyState.className = "empty-timeline";
+  emptyState.setAttribute("aria-label", "Add the first entry for this day");
 
   const icon = document.createElement("span");
   icon.className = "empty-timeline-icon";
@@ -555,6 +602,7 @@ function createEmptyTimeline() {
   detail.textContent = "Add the first entry for this day.";
   text.append(title, detail);
   emptyState.append(icon, text);
+  emptyState.addEventListener("click", openNewEntryModal);
   return emptyState;
 }
 
@@ -717,7 +765,7 @@ function updateFeedStatus() {
 
   const nextWindow = getNextFeedWindow();
 
-  lastMilkTime.textContent = formatClockTime(lastEntry.timeMinutes);
+  lastMilkTime.textContent = formatLastMilkTime(lastEntry);
   nextFeedTime.textContent = nextWindow ? formatTimeRange(nextWindow.start, nextWindow.end) : "--";
 }
 
