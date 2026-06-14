@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.14.11";
+const APP_VERSION = "2026.06.14.12";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
@@ -573,7 +573,7 @@ function renderTimeline() {
   });
 
   window.requestAnimationFrame(() => {
-    trackerGrid.lastElementChild?.scrollIntoView({ block: "nearest" });
+    trackerGrid.lastElementChild?.scrollIntoView({ block: "end", inline: "nearest" });
   });
 }
 
