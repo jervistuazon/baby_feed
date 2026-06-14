@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.14.16";
+const APP_VERSION = "2026.06.14.18";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;

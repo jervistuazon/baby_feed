@@ -153,6 +153,7 @@ h1 {
   display: grid;
   width: 34px;
   height: 34px;
+  min-height: 34px;
   place-items: center;
   border: 1px solid rgba(244, 95, 145, 0.28);
   border-radius: 13px;
@@ -1054,6 +1055,7 @@ body.modal-open {
   .settings-trigger {
     width: 32px;
     height: 32px;
+    min-height: 32px;
     border-radius: 12px;
   }
 
