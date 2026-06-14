@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.14.21";
+const APP_VERSION = "2026.06.15.1";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
 const TOTAL_SLOTS = 48;
@@ -291,16 +291,73 @@ function normalizeLoadedDay(savedData) {
   };
 }
 
-function loadDay() {
-  const saved = localStorage.getItem(getStorageKey());
+function createLocalTrackerStore() {
+  return {
+    loadDay(date) {
+      const key = getStorageKey(date);
+      const saved = localStorage.getItem(key);
+      const normalized = normalizeLoadedDay(saved ? JSON.parse(saved) : null);
 
-  try {
-    const normalized = normalizeLoadedDay(saved ? JSON.parse(saved) : null);
-    dayData = normalized.entries;
+      if (normalized.migrated) {
+        this.saveDay(date, normalized.entries);
+      }
 
-    if (normalized.migrated) {
-      localStorage.setItem(getStorageKey(), JSON.stringify(dayData));
+      return normalized.entries;
+    },
+    saveDay(date, entries) {
+      const normalizedEntries = normalizeEntries(entries);
+      const key = getStorageKey(date);
+
+      if (normalizedEntries.length) {
+        localStorage.setItem(key, JSON.stringify(normalizedEntries));
+      } else {
+        localStorage.removeItem(key);
+      }
+
+      return normalizedEntries;
+    },
+    clearDay(date) {
+      localStorage.removeItem(getStorageKey(date));
+    },
+    hasDayKey(key) {
+      return localStorage.getItem(key) !== null;
+    },
+    backupDays() {
+      const backup = {};
+
+      Object.keys(localStorage)
+        .filter(isTrackerStorageKey)
+        .sort()
+        .forEach((key) => {
+          try {
+            const normalized = normalizeLoadedDay(JSON.parse(localStorage.getItem(key)));
+            backup[key] = normalized.entries;
+          } catch (error) {
+            backup[key] = [];
+          }
+        });
+
+      return backup;
+    },
+    importDays(days) {
+      days.forEach(({ key, day }) => {
+        const entries = normalizeEntries(day);
+
+        if (entries.length) {
+          localStorage.setItem(key, JSON.stringify(entries));
+        } else {
+          localStorage.removeItem(key);
+        }
+      });
     }
+  };
+}
+
+const trackerStore = createLocalTrackerStore();
+
+function loadDay() {
+  try {
+    dayData = trackerStore.loadDay(selectedDate);
   } catch (error) {
     dayData = [];
   }
@@ -312,13 +369,7 @@ function loadDay() {
 }
 
 function saveDay() {
-  dayData = normalizeEntries(dayData);
-
-  if (dayData.length) {
-    localStorage.setItem(getStorageKey(), JSON.stringify(dayData));
-  } else {
-    localStorage.removeItem(getStorageKey());
-  }
+  dayData = trackerStore.saveDay(selectedDate, dayData);
 
   renderTimeline();
   updateSummary();
@@ -426,10 +477,8 @@ function getMilkEntries() {
 }
 
 function loadEntriesForDate(date) {
-  const saved = localStorage.getItem(getStorageKey(date));
-
   try {
-    return normalizeLoadedDay(saved ? JSON.parse(saved) : null).entries;
+    return trackerStore.loadDay(date);
   } catch (error) {
     return [];
   }
@@ -803,7 +852,7 @@ function clearDay() {
     return;
   }
 
-  localStorage.removeItem(getStorageKey());
+  trackerStore.clearDay(selectedDate);
   dayData = [];
   renderTimeline();
   updateSummary();
@@ -858,19 +907,7 @@ function exportCsv() {
 }
 
 function backupJson() {
-  const backup = {};
-
-  Object.keys(localStorage)
-    .filter(isTrackerStorageKey)
-    .sort()
-    .forEach((key) => {
-      try {
-        const normalized = normalizeLoadedDay(JSON.parse(localStorage.getItem(key)));
-        backup[key] = normalized.entries;
-      } catch (error) {
-        backup[key] = [];
-      }
-    });
+  const backup = trackerStore.backupDays();
 
   downloadFile(
     `anya-tracker-backup-${getDateKey(new Date())}.json`,
@@ -928,7 +965,7 @@ function importJsonFile(file) {
         return;
       }
 
-      const replacedCount = entries.filter(({ key }) => localStorage.getItem(key) !== null).length;
+      const replacedCount = entries.filter(({ key }) => trackerStore.hasDayKey(key)).length;
       const dayText = `${entries.length} saved ${entries.length === 1 ? "day" : "days"}`;
       const replaceText = replacedCount
         ? ` ${replacedCount} existing ${replacedCount === 1 ? "day" : "days"} will be replaced.`
@@ -939,14 +976,7 @@ function importJsonFile(file) {
         return;
       }
 
-      entries.forEach(({ key, day }) => {
-        if (day.length) {
-          localStorage.setItem(key, JSON.stringify(day));
-        } else {
-          localStorage.removeItem(key);
-        }
-      });
-
+      trackerStore.importDays(entries);
       loadDay();
       window.alert(`Imported ${dayText}.`);
     } catch (error) {

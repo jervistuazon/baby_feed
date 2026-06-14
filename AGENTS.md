@@ -17,7 +17,7 @@ The app also shows daily summary totals, last feed time, and a suggested next fe
 
 - `index.html` contains the app shell, settings menu, summary area, timeline mount point, floating add-entry button, and entry modal markup.
 - `style.css` contains the mobile-first visual design, responsive layout, modal styling, settings menu styling, timeline styling, and entry state styling.
-- `script.js` contains app state, localStorage persistence, date navigation, timeline rendering, summaries, CSV export, JSON backup/import, legacy slot migration, and feeding-window calculations.
+- `script.js` contains app state, the tracker storage adapter, localStorage persistence, date navigation, timeline rendering, summaries, CSV export, JSON backup/import, legacy slot migration, and feeding-window calculations.
 - `vercel.json` configures the static Vercel deployment.
 - `run-localhost.bat` and `serve-localhost.ps1` are local convenience launchers.
 
@@ -54,6 +54,7 @@ When loading imported or older data, keep using the existing normalization helpe
 
 - Prefer small, direct changes. This app intentionally avoids frameworks and dependencies.
 - Keep behavior client-only unless the user explicitly asks for backend or sync functionality.
+- Route persistence through the tracker storage adapter in `script.js` instead of adding new direct `localStorage` calls from UI flow code.
 - Preserve the backup JSON shape unless intentionally doing a migration: an object whose keys are tracker-day localStorage keys and whose values are normalized day-entry arrays.
 - Be careful with `localStorage` keys. Only tracker-day keys should be imported, exported, or cleared by tracker features.
 - If backend sync is added, prefer treating cloud data as the source of truth after sign-in while preserving local import/export as migration and backup tools.
