@@ -26,7 +26,7 @@ Then open <http://localhost:4173>.
 
 ## Firebase setup
 
-The app is configured for the Firebase project `baby-tracker-e5753`. Google sign-in is enabled, Cloud Firestore is created, and the Firestore rules in this repo have been deployed.
+The app is configured for the Firebase project `baby-tracker-e5753`. Email/password sign-in is enabled, Cloud Firestore is created, and the Firestore rules in this repo have been deployed.
 
 If you replace the Firebase project later, use this checklist:
 
@@ -34,7 +34,7 @@ If you replace the Firebase project later, use this checklist:
 2. Create or select a Firebase project.
 3. Add a Web app in Project overview.
 4. Copy the `firebaseConfig` values into `window.ANYA_FIREBASE_CONFIG` in `firebase-config.js`.
-5. In Authentication, enable the Google sign-in provider.
+5. In Authentication, enable the Email/Password sign-in provider.
 6. In Authentication settings, add your deployed Vercel domain and `localhost` as authorized domains if they are not already listed.
 7. In Firestore Database, create a database.
 8. Publish `firestore.rules` in the Firestore Rules tab, or deploy them with the Firebase CLI:
@@ -43,7 +43,7 @@ If you replace the Firebase project later, use this checklist:
 firebase deploy --only firestore:rules
 ```
 
-After the config is filled in, Settings shows **Sign in with Google**. Once signed in, Firestore is treated as the source of truth. If the browser already has local tracker days and the cloud family is empty, the app asks whether to copy the local entries into cloud sync.
+After the config is filled in, Settings shows **Sign in with password**. Once signed in, Firestore is treated as the source of truth. If the browser already has local tracker days and the cloud family is empty, the app asks whether to copy the local entries into cloud sync.
 
 ### Family data
 
@@ -55,7 +55,7 @@ families/{familyId}/days/{YYYY-MM-DD}/entries/{entryId}
 
 The default `familyId` is `anya-family`. You can change it in `firebase-config.js` if you want a different shared family bucket.
 
-Shared family access is controlled by private Firestore invite records under `families/{familyId}/invites`. Any invited, verified Google email can sign in and join the same synced family data.
+The first signed-in account that creates a family becomes its owner. Shared family access can be handled by using the same family email/password on trusted devices, or by adding private Firestore invite records under `families/{familyId}/invites` for other email/password accounts.
 
 ## Cache busting
 
@@ -63,7 +63,7 @@ Every app update must bump the cache-buster version in `index.html` and `script.
 
 - Update the `?v=...` value on the `style.css`, `firebase-config.js`, and `script.js` asset URLs in `index.html`.
 - Update `APP_VERSION` at the top of `script.js` to the same value.
-- Use an incrementing value such as `2026.06.15.9` for the next update.
+- Use an incrementing value such as `2026.06.15.11` for the next update.
 
 This keeps deployed browsers from reusing old cached CSS or JavaScript after a new release.
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#fff7f8">
   <title>Anya Baby Tracker</title>
-  <link rel="stylesheet" href="style.css?v=2026.06.15.9">
+  <link rel="stylesheet" href="style.css?v=2026.06.15.10">
 </head>
 <body>
   <svg class="icon-sprite" aria-hidden="true" focusable="false">
@@ -88,6 +88,11 @@
       <circle cx="12" cy="8.2" r="3.4" />
       <path d="M5.8 20a6.2 6.2 0 0 1 12.4 0" />
     </symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24">
+      <path d="M7.2 10.5V8.2a4.8 4.8 0 0 1 9.6 0v2.3" />
+      <path d="M6.4 10.5h11.2a1.6 1.6 0 0 1 1.6 1.6v6.3a1.6 1.6 0 0 1-1.6 1.6H6.4a1.6 1.6 0 0 1-1.6-1.6v-6.3a1.6 1.6 0 0 1 1.6-1.6Z" />
+      <path d="M12 14.2v2.3" />
+    </symbol>
     <symbol id="icon-chevron" viewBox="0 0 24 24">
       <path d="m9 5 7 7-7 7" />
     </symbol>
@@ -108,14 +113,14 @@
             <strong>Settings</strong>
             <span>Baby Tracker</span>
           </div>
-          <button id="signInGoogle" class="settings-menu-item auth-menu-item" type="button">
-            <span aria-hidden="true"><svg class="menu-icon"><use href="#icon-user"></use></svg></span>
+          <button id="signInPassword" class="settings-menu-item auth-menu-item" type="button">
+            <span aria-hidden="true"><svg class="menu-icon"><use href="#icon-lock"></use></svg></span>
             <span>
-              <strong>Sign in with Google</strong>
+              <strong>Sign in with password</strong>
               <small>Use cloud sync for this family</small>
             </span>
           </button>
-          <button id="signOutGoogle" class="settings-menu-item sign-out-menu-item" type="button" hidden>
+          <button id="signOutAccount" class="settings-menu-item sign-out-menu-item" type="button" hidden>
             <span aria-hidden="true"><svg class="menu-icon"><use href="#icon-cloud"></use></svg></span>
             <span>
               <strong>Sign out</strong>
@@ -272,7 +277,34 @@
     </section>
   </div>
 
-  <script src="firebase-config.js?v=2026.06.15.9"></script>
-  <script src="script.js?v=2026.06.15.9"></script>
+  <div id="authModal" class="modal-backdrop" hidden>
+    <section class="activity-modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+      <div class="modal-header">
+        <div>
+          <span class="date-label">Cloud sync</span>
+          <h2 id="authModalTitle">Sign in</h2>
+        </div>
+        <button id="closeAuthModal" class="close-button" type="button" aria-label="Close sign-in popup">&times;</button>
+      </div>
+
+      <form id="authForm" class="auth-form">
+        <label class="notes-label" for="authEmail">Email</label>
+        <input id="authEmail" class="notes-input" type="email" autocomplete="email" required>
+
+        <label class="notes-label" for="authPassword">Password</label>
+        <input id="authPassword" class="notes-input" type="password" autocomplete="current-password" minlength="6" required>
+
+        <p id="authMessage" class="auth-message" aria-live="polite"></p>
+
+        <div class="modal-actions auth-actions">
+          <button id="createAccount" class="modal-button delete-entry" type="button">Create account</button>
+          <button id="submitSignIn" class="modal-button save-entry" type="submit">Sign in</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <script src="firebase-config.js?v=2026.06.15.10"></script>
+  <script src="script.js?v=2026.06.15.10"></script>
 </body>
 </html>

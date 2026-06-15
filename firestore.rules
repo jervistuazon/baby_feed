@@ -6,10 +6,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function hasVerifiedEmail() {
+    function hasEmail() {
       return signedIn()
-        && request.auth.token.email is string
-        && request.auth.token.email_verified == true;
+        && request.auth.token.email is string;
     }
 
     function familyDoc(familyId) {
@@ -25,7 +24,7 @@ service cloud.firestore {
     }
 
     function hasFamilyInvite(familyId) {
-      return hasVerifiedEmail() && exists(inviteDoc(familyId));
+      return hasEmail() && exists(inviteDoc(familyId));
     }
 
     function isFamilyMember(familyId) {
@@ -97,18 +96,20 @@ service cloud.firestore {
     }
 
     match /families/{familyId} {
-      allow create: if hasFamilyInvite(familyId)
+      allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['ownerUid', 'createdAt', 'updatedAt'])
         && request.resource.data.ownerUid == request.auth.uid;
-      allow read: if isFamilyMember(familyId) || hasFamilyInvite(familyId);
+      allow read: if signedIn();
       allow update: if isFamilyOwner(familyId)
         && request.resource.data.keys().hasOnly(['ownerUid', 'createdAt', 'updatedAt'])
         && request.resource.data.ownerUid == resource.data.ownerUid;
       allow delete: if isFamilyOwner(familyId);
 
       match /members/{memberUid} {
-        allow read: if isFamilyMember(familyId) || (hasFamilyInvite(familyId) && memberUid == request.auth.uid);
-        allow create: if hasFamilyInvite(familyId) && validMember(memberUid);
+        allow read: if isFamilyMember(familyId)
+          || isFamilyOwner(familyId)
+          || (hasFamilyInvite(familyId) && memberUid == request.auth.uid);
+        allow create: if validMember(memberUid) && (isFamilyOwner(familyId) || hasFamilyInvite(familyId));
         allow update, delete: if isFamilyOwner(familyId);
       }
 

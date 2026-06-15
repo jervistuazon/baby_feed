@@ -885,6 +885,35 @@ body.modal-open {
   box-shadow: 0 24px 70px rgba(132, 93, 122, 0.2);
 }
 
+.auth-modal {
+  max-width: 440px;
+}
+
+.auth-form .notes-label {
+  margin-top: 14px;
+}
+
+.auth-form .notes-label:first-child {
+  margin-top: 0;
+}
+
+.auth-message {
+  min-height: 20px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.auth-message.auth-error {
+  color: var(--alert);
+}
+
+.auth-actions {
+  grid-template-columns: 1fr 1fr;
+}
+
 .modal-header {
   display: flex;
   align-items: center;

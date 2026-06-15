@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.15.9";
+const APP_VERSION = "2026.06.15.10";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -43,11 +43,19 @@ const importJsonButton = document.getElementById("importJson");
 const importJsonInput = document.getElementById("importJsonInput");
 const syncStatus = document.getElementById("syncStatus");
 const syncStatusText = document.getElementById("syncStatusText");
-const signInGoogleButton = document.getElementById("signInGoogle");
-const signOutGoogleButton = document.getElementById("signOutGoogle");
+const signInPasswordButton = document.getElementById("signInPassword");
+const signOutAccountButton = document.getElementById("signOutAccount");
 const settingsButton = document.getElementById("settingsButton");
 const settingsMenu = document.getElementById("settingsMenu");
 const activityModal = document.getElementById("activityModal");
+const authModal = document.getElementById("authModal");
+const authForm = document.getElementById("authForm");
+const authEmail = document.getElementById("authEmail");
+const authPassword = document.getElementById("authPassword");
+const authMessage = document.getElementById("authMessage");
+const closeAuthModalButton = document.getElementById("closeAuthModal");
+const createAccountButton = document.getElementById("createAccount");
+const submitSignInButton = document.getElementById("submitSignIn");
 const modalDateLabel = document.getElementById("modalDateLabel");
 const modalTitle = document.getElementById("modalTitle");
 const modalEntryTime = document.getElementById("modalEntryTime");
@@ -433,12 +441,10 @@ async function loadFirebaseModules() {
 
   return {
     initializeApp: appModule.initializeApp,
+    createUserWithEmailAndPassword: authModule.createUserWithEmailAndPassword,
     getAuth: authModule.getAuth,
-    GoogleAuthProvider: authModule.GoogleAuthProvider,
-    getRedirectResult: authModule.getRedirectResult,
     onAuthStateChanged: authModule.onAuthStateChanged,
-    signInWithPopup: authModule.signInWithPopup,
-    signInWithRedirect: authModule.signInWithRedirect,
+    signInWithEmailAndPassword: authModule.signInWithEmailAndPassword,
     signOut: authModule.signOut,
     getFirestore: firestoreModule.getFirestore,
     collection: firestoreModule.collection,
@@ -655,18 +661,8 @@ function updateSyncStatus(text, state = "local") {
 function updateAuthButtons() {
   const firebaseReady = isFirebaseConfigComplete(window.ANYA_FIREBASE_CONFIG);
 
-  signInGoogleButton.hidden = Boolean(firebaseUser) || !firebaseReady;
-  signOutGoogleButton.hidden = !firebaseUser;
-}
-
-function shouldUseRedirectSignIn() {
-  const userAgent = navigator.userAgent || "";
-  const isMobileBrowser = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
-  const hasTouch = navigator.maxTouchPoints > 0;
-  const hasCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
-  const hasSmallViewport = window.innerWidth <= 820;
-
-  return isMobileBrowser || (hasTouch && (hasCoarsePointer || hasSmallViewport));
+  signInPasswordButton.hidden = Boolean(firebaseUser) || !firebaseReady;
+  signOutAccountButton.hidden = !firebaseUser;
 }
 
 function clearCloudSubscription() {
@@ -1402,28 +1398,89 @@ function importJson() {
   importJsonInput.click();
 }
 
-async function signInWithGoogle() {
+function setAuthMessage(message = "", isError = false) {
+  authMessage.textContent = message;
+  authMessage.classList.toggle("auth-error", isError);
+}
+
+function openAuthModal() {
   if (!firebaseAuth?.modules) {
     updateSyncStatus("Config needed", "error");
     return;
   }
 
-  try {
-    const provider = new firebaseAuth.modules.GoogleAuthProvider();
+  setAuthMessage("Use the family email and password for cloud sync.");
+  authPassword.value = "";
+  authModal.hidden = false;
+  document.body.classList.add("modal-open");
+  window.setTimeout(() => {
+    (authEmail.value ? authPassword : authEmail).focus();
+  }, 0);
+}
 
-    if (shouldUseRedirectSignIn()) {
-      updateSyncStatus("Opening Google", "cloud");
-      await firebaseAuth.modules.signInWithRedirect(firebaseAuth.auth, provider);
-      return;
-    }
+function closeAuthModal() {
+  authModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
 
-    await firebaseAuth.modules.signInWithPopup(firebaseAuth.auth, provider);
-  } catch (error) {
-    updateSyncStatus("Sign-in failed", "error");
+function getAuthErrorMessage(error) {
+  switch (error?.code) {
+    case "auth/email-already-in-use":
+      return "That email already has an account. Sign in instead.";
+    case "auth/invalid-credential":
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+      return "That email or password does not match.";
+    case "auth/invalid-email":
+      return "Enter a valid email address.";
+    case "auth/weak-password":
+      return "Use a password with at least 6 characters.";
+    case "auth/operation-not-allowed":
+      return "Email/password sign-in needs to be enabled in Firebase Authentication.";
+    case "auth/network-request-failed":
+      return "Network trouble. Try again when the connection is steady.";
+    default:
+      return "Sign-in did not work. Please try again.";
   }
 }
 
-async function signOutGoogle() {
+async function submitPasswordAuth({ createAccount = false } = {}) {
+  if (!firebaseAuth?.modules) {
+    updateSyncStatus("Config needed", "error");
+    return;
+  }
+
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+
+  if (!email || !password) {
+    setAuthMessage("Enter the family email and password.", true);
+    return;
+  }
+
+  try {
+    submitSignInButton.disabled = true;
+    createAccountButton.disabled = true;
+    setAuthMessage(createAccount ? "Creating account..." : "Signing in...");
+    updateSyncStatus(createAccount ? "Creating account" : "Signing in", "cloud");
+
+    if (createAccount) {
+      await firebaseAuth.modules.createUserWithEmailAndPassword(firebaseAuth.auth, email, password);
+    } else {
+      await firebaseAuth.modules.signInWithEmailAndPassword(firebaseAuth.auth, email, password);
+    }
+
+    closeAuthModal();
+  } catch (error) {
+    setAuthMessage(getAuthErrorMessage(error), true);
+    updateSyncStatus("Sign-in failed", "error");
+  } finally {
+    submitSignInButton.disabled = false;
+    createAccountButton.disabled = false;
+  }
+}
+
+async function signOutAccount() {
   if (!firebaseAuth?.modules) {
     return;
   }
@@ -1466,7 +1523,7 @@ async function offerLocalBackupImportToCloud(cloudStore) {
   }
 
   const localEntryCount = getBackupEntryCount(localBackup);
-  const signedInEmail = firebaseUser?.email || "this Google account";
+  const signedInEmail = firebaseUser?.email || "this account";
   const familyId = getFirebaseFamilyId();
   const confirmed = window.confirm(
     `Copy ${localEntryCount} local ${localEntryCount === 1 ? "entry" : "entries"} from ${localDayCount} ${localDayCount === 1 ? "day" : "days"} to cloud sync for ${familyId} as ${signedInEmail}?`
@@ -1505,12 +1562,6 @@ async function initializeFirebase() {
     firebaseAuth = { auth, db, modules };
     updateSyncStatus("Sign in", "local");
     updateAuthButtons();
-
-    try {
-      await modules.getRedirectResult(auth);
-    } catch (error) {
-      updateSyncStatus("Sign-in failed", "error");
-    }
 
     modules.onAuthStateChanged(auth, async (user) => {
       firebaseUser = user;
@@ -1559,6 +1610,11 @@ activityModal.addEventListener("click", (event) => {
     closeActivityModal();
   }
 });
+authModal.addEventListener("click", (event) => {
+  if (event.target === authModal) {
+    closeAuthModal();
+  }
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") {
@@ -1567,6 +1623,10 @@ document.addEventListener("keydown", (event) => {
 
   if (!activityModal.hidden) {
     closeActivityModal();
+  }
+
+  if (!authModal.hidden) {
+    closeAuthModal();
   }
 
   if (!settingsMenu.hidden) {
@@ -1607,14 +1667,22 @@ importJsonButton.addEventListener("click", () => {
   closeSettingsMenu();
   importJson();
 });
-signInGoogleButton.addEventListener("click", () => {
+signInPasswordButton.addEventListener("click", () => {
   closeSettingsMenu();
-  signInWithGoogle();
+  openAuthModal();
 });
-signOutGoogleButton.addEventListener("click", () => {
+signOutAccountButton.addEventListener("click", () => {
   closeSettingsMenu();
-  signOutGoogle();
+  signOutAccount();
 });
+authForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitPasswordAuth();
+});
+createAccountButton.addEventListener("click", () => {
+  submitPasswordAuth({ createAccount: true });
+});
+closeAuthModalButton.addEventListener("click", closeAuthModal);
 importJsonInput.addEventListener("change", (event) => {
   importJsonFile(event.target.files?.[0]);
 });
