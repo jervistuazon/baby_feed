@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.15.6";
+const APP_VERSION = "2026.06.15.7";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -324,6 +324,14 @@ function createLocalTrackerStore() {
 
       return normalizedEntries;
     },
+    saveEntry(date, entry) {
+      const entries = this.loadDay(date).filter((item) => item.id !== entry.id);
+      return this.saveDay(date, [...entries, entry]).find((item) => item.id === entry.id) || null;
+    },
+    deleteEntry(date, entryId) {
+      const entries = this.loadDay(date).filter((entry) => entry.id !== entryId);
+      this.saveDay(date, entries);
+    },
     clearDay(date) {
       localStorage.removeItem(getStorageKey(date));
     },
@@ -534,6 +542,42 @@ function createCloudTrackerStore(modules, db, authUser) {
       await batch.commit();
       return normalizedEntries;
     },
+    async saveEntry(date, entry) {
+      await ensureFamilyMembership();
+
+      const normalizedEntry = normalizeEntries([entry])[0];
+
+      if (!normalizedEntry) {
+        return null;
+      }
+
+      const entryDoc = modules.doc(db, "families", familyId, "days", getDateKey(date), "entries", normalizedEntry.id);
+      const existingSnapshot = await modules.getDoc(entryDoc);
+      const existingIds = new Set(existingSnapshot.exists() ? [normalizedEntry.id] : []);
+      const batch = modules.writeBatch(db);
+
+      batch.set(dayRef(date), {
+        dateKey: getDateKey(date),
+        updatedAt: modules.serverTimestamp(),
+        updatedBy: authUser.uid
+      }, { merge: true });
+
+      batch.set(entryDoc, getCloudEntryData(normalizedEntry, userContext, existingIds), { merge: true });
+      await batch.commit();
+      return normalizedEntry;
+    },
+    async deleteEntry(date, entryId) {
+      await ensureFamilyMembership();
+
+      const batch = modules.writeBatch(db);
+      batch.set(dayRef(date), {
+        dateKey: getDateKey(date),
+        updatedAt: modules.serverTimestamp(),
+        updatedBy: authUser.uid
+      }, { merge: true });
+      batch.delete(modules.doc(db, "families", familyId, "days", getDateKey(date), "entries", entryId));
+      await batch.commit();
+    },
     async clearDay(date) {
       await ensureFamilyMembership();
 
@@ -575,6 +619,12 @@ function createCloudTrackerStore(modules, db, authUser) {
           await this.saveDay(new Date(`${getDateKeyFromStorageKey(key)}T00:00:00`), day);
         }
       }
+    },
+    async canSeedCloud() {
+      await ensureFamilyMembership();
+
+      const memberSnapshot = await modules.getDoc(memberRef());
+      return memberSnapshot.exists() && memberSnapshot.data().role === "owner";
     },
     subscribeDay(date, handleEntries, handleError) {
       const unsubscribe = modules.onSnapshot(
@@ -1086,20 +1136,44 @@ async function saveActivityModal() {
     return;
   }
 
-  if (activeEntryId) {
-    dayData = dayData.map((item) => (item.id === activeEntryId ? entry : item));
-  } else {
-    dayData = [...dayData, entry];
+  try {
+    const savedEntry = trackerStore.saveEntry
+      ? await trackerStore.saveEntry(selectedDate, entry)
+      : null;
+    const displayEntry = savedEntry || entry;
+
+    if (activeEntryId) {
+      dayData = normalizeEntries(dayData.map((item) => (item.id === activeEntryId ? displayEntry : item)));
+    } else {
+      dayData = normalizeEntries([...dayData, displayEntry]);
+    }
+  } catch (error) {
+    window.alert(trackerStore.isCloud ? "Couldn't save to cloud. Please check your connection and sign-in." : "Couldn't save this entry.");
+    return;
   }
 
-  await saveDay();
+  renderTimeline();
+  updateSummary();
   closeActivityModal();
 }
 
 async function deleteActivityEntry() {
   if (activeEntryId) {
-    dayData = dayData.filter((entry) => entry.id !== activeEntryId);
-    await saveDay();
+    try {
+      if (trackerStore.deleteEntry) {
+        await trackerStore.deleteEntry(selectedDate, activeEntryId);
+      } else {
+        dayData = dayData.filter((entry) => entry.id !== activeEntryId);
+        await saveDay();
+      }
+
+      dayData = dayData.filter((entry) => entry.id !== activeEntryId);
+      renderTimeline();
+      updateSummary();
+    } catch (error) {
+      window.alert(trackerStore.isCloud ? "Couldn't delete this cloud entry." : "Couldn't delete this entry.");
+      return;
+    }
   }
 
   closeActivityModal();
@@ -1351,6 +1425,16 @@ async function offerLocalBackupImportToCloud(cloudStore) {
     return;
   }
 
+  if (cloudStore.canSeedCloud) {
+    try {
+      if (!(await cloudStore.canSeedCloud())) {
+        return;
+      }
+    } catch (error) {
+      return;
+    }
+  }
+
   let cloudBackup = {};
 
   try {
@@ -1364,8 +1448,10 @@ async function offerLocalBackupImportToCloud(cloudStore) {
   }
 
   const localEntryCount = getBackupEntryCount(localBackup);
+  const signedInEmail = firebaseUser?.email || "this Google account";
+  const familyId = getFirebaseFamilyId();
   const confirmed = window.confirm(
-    `Copy ${localEntryCount} local ${localEntryCount === 1 ? "entry" : "entries"} from ${localDayCount} ${localDayCount === 1 ? "day" : "days"} to cloud sync?`
+    `Copy ${localEntryCount} local ${localEntryCount === 1 ? "entry" : "entries"} from ${localDayCount} ${localDayCount === 1 ? "day" : "days"} to cloud sync for ${familyId} as ${signedInEmail}?`
   );
 
   if (!confirmed) {

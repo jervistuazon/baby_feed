@@ -63,7 +63,7 @@ Every app update must bump the cache-buster version in `index.html` and `script.
 
 - Update the `?v=...` value on the `style.css`, `firebase-config.js`, and `script.js` asset URLs in `index.html`.
 - Update `APP_VERSION` at the top of `script.js` to the same value.
-- Use an incrementing value such as `2026.06.15.7` for the next update.
+- Use an incrementing value such as `2026.06.15.8` for the next update.
 
 This keeps deployed browsers from reusing old cached CSS or JavaScript after a new release.
 
