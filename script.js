@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.15.8";
+const APP_VERSION = "2026.06.15.9";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -493,7 +493,6 @@ function createCloudTrackerStore(modules, db, authUser) {
         uid: authUser.uid,
         email: authUser.email || "",
         displayName: authUser.displayName || "",
-        role: familySnapshot.exists() ? "caregiver" : "owner",
         createdAt: modules.serverTimestamp(),
         updatedAt: modules.serverTimestamp()
       });
@@ -625,8 +624,8 @@ function createCloudTrackerStore(modules, db, authUser) {
     async canSeedCloud() {
       await ensureFamilyMembership();
 
-      const memberSnapshot = await modules.getDoc(memberRef());
-      return memberSnapshot.exists() && memberSnapshot.data().role === "owner";
+      const familySnapshot = await modules.getDoc(familyRef());
+      return familySnapshot.exists() && familySnapshot.data().ownerUid === authUser.uid;
     },
     subscribeDay(date, handleEntries, handleError) {
       const unsubscribe = modules.onSnapshot(
