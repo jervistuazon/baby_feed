@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.15.7";
+const APP_VERSION = "2026.06.15.8";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -435,8 +435,10 @@ async function loadFirebaseModules() {
     initializeApp: appModule.initializeApp,
     getAuth: authModule.getAuth,
     GoogleAuthProvider: authModule.GoogleAuthProvider,
+    getRedirectResult: authModule.getRedirectResult,
     onAuthStateChanged: authModule.onAuthStateChanged,
     signInWithPopup: authModule.signInWithPopup,
+    signInWithRedirect: authModule.signInWithRedirect,
     signOut: authModule.signOut,
     getFirestore: firestoreModule.getFirestore,
     collection: firestoreModule.collection,
@@ -656,6 +658,16 @@ function updateAuthButtons() {
 
   signInGoogleButton.hidden = Boolean(firebaseUser) || !firebaseReady;
   signOutGoogleButton.hidden = !firebaseUser;
+}
+
+function shouldUseRedirectSignIn() {
+  const userAgent = navigator.userAgent || "";
+  const isMobileBrowser = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+  const hasTouch = navigator.maxTouchPoints > 0;
+  const hasCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
+  const hasSmallViewport = window.innerWidth <= 820;
+
+  return isMobileBrowser || (hasTouch && (hasCoarsePointer || hasSmallViewport));
 }
 
 function clearCloudSubscription() {
@@ -1399,6 +1411,13 @@ async function signInWithGoogle() {
 
   try {
     const provider = new firebaseAuth.modules.GoogleAuthProvider();
+
+    if (shouldUseRedirectSignIn()) {
+      updateSyncStatus("Opening Google", "cloud");
+      await firebaseAuth.modules.signInWithRedirect(firebaseAuth.auth, provider);
+      return;
+    }
+
     await firebaseAuth.modules.signInWithPopup(firebaseAuth.auth, provider);
   } catch (error) {
     updateSyncStatus("Sign-in failed", "error");
@@ -1487,6 +1506,12 @@ async function initializeFirebase() {
     firebaseAuth = { auth, db, modules };
     updateSyncStatus("Sign in", "local");
     updateAuthButtons();
+
+    try {
+      await modules.getRedirectResult(auth);
+    } catch (error) {
+      updateSyncStatus("Sign-in failed", "error");
+    }
 
     modules.onAuthStateChanged(auth, async (user) => {
       firebaseUser = user;
