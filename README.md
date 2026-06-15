@@ -55,13 +55,15 @@ families/{familyId}/days/{YYYY-MM-DD}/entries/{entryId}
 
 The default `familyId` is `anya-family`. You can change it in `firebase-config.js` if you want a different shared family bucket.
 
+Shared family access is controlled by private Firestore invite records under `families/{familyId}/invites`. The invited owner should sign in first to create the family cloud space, then caregiver accounts can sign in and join the same synced data.
+
 ## Cache busting
 
 Every app update must bump the cache-buster version in `index.html` and `script.js`.
 
 - Update the `?v=...` value on the `style.css`, `firebase-config.js`, and `script.js` asset URLs in `index.html`.
 - Update `APP_VERSION` at the top of `script.js` to the same value.
-- Use an incrementing value such as `2026.06.15.6` for the next update.
+- Use an incrementing value such as `2026.06.15.7` for the next update.
 
 This keeps deployed browsers from reusing old cached CSS or JavaScript after a new release.
 

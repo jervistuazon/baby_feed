@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.15.5";
+const APP_VERSION = "2026.06.15.6";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;

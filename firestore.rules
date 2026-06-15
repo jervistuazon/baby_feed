@@ -6,12 +6,30 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function hasVerifiedEmail() {
+      return signedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+
     function familyDoc(familyId) {
       return /databases/$(database)/documents/families/$(familyId);
     }
 
     function memberDoc(familyId, uid) {
       return /databases/$(database)/documents/families/$(familyId)/members/$(uid);
+    }
+
+    function inviteDoc(familyId) {
+      return /databases/$(database)/documents/families/$(familyId)/invites/$(request.auth.token.email);
+    }
+
+    function hasFamilyInvite(familyId) {
+      return hasVerifiedEmail() && exists(inviteDoc(familyId));
+    }
+
+    function invitedRole(familyId) {
+      return get(inviteDoc(familyId)).data.role;
     }
 
     function isFamilyMember(familyId) {
@@ -69,25 +87,36 @@ service cloud.firestore {
       && request.resource.data.updatedBy == request.auth.uid;
     }
 
+    function validMember(familyId, memberUid) {
+      return request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && memberUid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 120
+        && request.resource.data.role in ['owner', 'caregiver']
+        && request.resource.data.role == invitedRole(familyId);
+    }
+
     match /families/{familyId} {
-      allow create: if signedIn()
+      allow create: if hasFamilyInvite(familyId)
+        && invitedRole(familyId) == 'owner'
         && request.resource.data.keys().hasOnly(['ownerUid', 'createdAt', 'updatedAt'])
         && request.resource.data.ownerUid == request.auth.uid;
-      allow read: if signedIn();
+      allow read: if isFamilyMember(familyId) || hasFamilyInvite(familyId);
       allow update: if isFamilyOwner(familyId)
         && request.resource.data.keys().hasOnly(['ownerUid', 'createdAt', 'updatedAt'])
         && request.resource.data.ownerUid == resource.data.ownerUid;
       allow delete: if isFamilyOwner(familyId);
 
       match /members/{memberUid} {
-        allow read: if isFamilyMember(familyId) || (signedIn() && memberUid == request.auth.uid);
-        allow create: if signedIn()
-          && memberUid == request.auth.uid
-          && isFamilyOwner(familyId)
-          && request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'createdAt', 'updatedAt'])
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.role in ['owner', 'caregiver'];
+        allow read: if isFamilyMember(familyId) || (hasFamilyInvite(familyId) && memberUid == request.auth.uid);
+        allow create: if hasFamilyInvite(familyId) && validMember(familyId, memberUid);
         allow update, delete: if isFamilyOwner(familyId);
+      }
+
+      match /invites/{inviteEmail} {
+        allow read, write: if isFamilyOwner(familyId);
       }
 
       match /days/{dayId} {
