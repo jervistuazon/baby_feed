@@ -1,0 +1,106 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function familyDoc(familyId) {
+      return /databases/$(database)/documents/families/$(familyId);
+    }
+
+    function memberDoc(familyId, uid) {
+      return /databases/$(database)/documents/families/$(familyId)/members/$(uid);
+    }
+
+    function isFamilyMember(familyId) {
+      return signedIn() && exists(memberDoc(familyId, request.auth.uid));
+    }
+
+    function isFamilyOwner(familyId) {
+      return signedIn() && get(familyDoc(familyId)).data.ownerUid == request.auth.uid;
+    }
+
+    function validDayId(dayId) {
+      return dayId.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function validDay(dayId) {
+      return request.resource.data.keys().hasOnly([
+        'dateKey',
+        'updatedAt',
+        'updatedBy'
+      ])
+      && request.resource.data.dateKey == dayId
+      && request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    function validEntry(entryId) {
+      return request.resource.data.keys().hasOnly([
+        'id',
+        'timeMinutes',
+        'milk',
+        'milkAmountMl',
+        'pee',
+        'poop',
+        'notes',
+        'createdAt',
+        'updatedAt',
+        'updatedBy'
+      ])
+      && request.resource.data.id == entryId
+      && request.resource.data.timeMinutes is int
+      && request.resource.data.timeMinutes >= 0
+      && request.resource.data.timeMinutes < 1440
+      && request.resource.data.milk is bool
+      && (
+        request.resource.data.milkAmountMl == null
+        || (
+          request.resource.data.milkAmountMl is int
+          && request.resource.data.milkAmountMl > 0
+          && request.resource.data.milkAmountMl <= 999
+        )
+      )
+      && request.resource.data.pee is bool
+      && request.resource.data.poop is bool
+      && request.resource.data.notes is string
+      && request.resource.data.notes.size() <= 80
+      && request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    match /families/{familyId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['ownerUid', 'createdAt', 'updatedAt'])
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow read: if signedIn();
+      allow update: if isFamilyOwner(familyId)
+        && request.resource.data.keys().hasOnly(['ownerUid', 'createdAt', 'updatedAt'])
+        && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if isFamilyOwner(familyId);
+
+      match /members/{memberUid} {
+        allow read: if isFamilyMember(familyId) || (signedIn() && memberUid == request.auth.uid);
+        allow create: if signedIn()
+          && memberUid == request.auth.uid
+          && isFamilyOwner(familyId)
+          && request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'createdAt', 'updatedAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.role in ['owner', 'caregiver'];
+        allow update, delete: if isFamilyOwner(familyId);
+      }
+
+      match /days/{dayId} {
+        allow read: if isFamilyMember(familyId) && validDayId(dayId);
+        allow create, update: if isFamilyMember(familyId) && validDayId(dayId) && validDay(dayId);
+        allow delete: if isFamilyMember(familyId) && validDayId(dayId);
+
+        match /entries/{entryId} {
+          allow read: if isFamilyMember(familyId) && validDayId(dayId);
+          allow create, update: if isFamilyMember(familyId) && validDayId(dayId) && validEntry(entryId);
+          allow delete: if isFamilyMember(familyId) && validDayId(dayId);
+        }
+      }
+    }
+  }
+}

@@ -146,7 +146,48 @@ h1 {
 .header-actions {
   position: relative;
   z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   flex: 0 0 auto;
+}
+
+.sync-status {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid rgba(244, 95, 145, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
+  box-shadow: 0 12px 28px rgba(244, 95, 145, 0.1);
+  font-size: 0.72rem;
+  font-weight: 720;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sync-status-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+}
+
+.sync-status.cloud-sync {
+  border-color: rgba(69, 201, 109, 0.22);
+  color: #299150;
+}
+
+.sync-status.cloud-error {
+  border-color: rgba(223, 94, 105, 0.2);
+  color: var(--alert);
 }
 
 .settings-trigger {
@@ -233,6 +274,10 @@ h1 {
   text-align: left;
 }
 
+.settings-menu-item[hidden] {
+  display: none;
+}
+
 .settings-menu-item:hover {
   background: #fff7fa;
 }
@@ -247,14 +292,24 @@ h1 {
   color: var(--milk);
 }
 
-.settings-menu-item:nth-of-type(2) > span:first-child {
+.backup-menu-item > span:first-child {
   background: var(--pee-soft);
   color: var(--pee);
 }
 
-.settings-menu-item:nth-of-type(3) > span:first-child {
+.import-menu-item > span:first-child {
   background: var(--notes-soft);
   color: var(--notes);
+}
+
+.auth-menu-item > span:first-child {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.sign-out-menu-item > span:first-child {
+  background: var(--soon-soft);
+  color: var(--soon);
 }
 
 .menu-icon {
@@ -1080,6 +1135,18 @@ body.modal-open {
     border-radius: 12px;
   }
 
+  .sync-status {
+    min-height: 30px;
+    max-width: 138px;
+    padding-inline: 8px;
+    font-size: 0.68rem;
+  }
+
+  .sync-status span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .settings-menu {
     right: 0;
     width: min(318px, calc(100vw - 36px));
@@ -1294,6 +1361,12 @@ body.modal-open {
   .settings-trigger {
     width: 30px;
     height: 30px;
+  }
+
+  .sync-status {
+    max-width: 112px;
+    padding-inline: 7px;
+    font-size: 0.62rem;
   }
 
   .summary-card {
