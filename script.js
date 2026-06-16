@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.15.10";
+const APP_VERSION = "2026.06.15.11";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -656,6 +656,9 @@ function updateSyncStatus(text, state = "local") {
   syncStatus.classList.toggle("cloud-sync", state === "cloud");
   syncStatus.classList.toggle("cloud-error", state === "error");
   syncStatus.classList.toggle("local-sync", state === "local");
+  syncStatus.classList.toggle("sync-ready", state === "cloud" && text === "Cloud sync");
+  syncStatus.setAttribute("aria-label", text);
+  syncStatus.title = text;
 }
 
 function updateAuthButtons() {

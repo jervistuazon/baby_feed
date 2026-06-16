@@ -58,6 +58,7 @@ When loading imported or older data, keep using the existing normalization helpe
 - Preserve the backup JSON shape unless intentionally doing a migration: an object whose keys are tracker-day localStorage keys and whose values are normalized day-entry arrays.
 - Be careful with `localStorage` keys. Only tracker-day keys should be imported, exported, or cleared by tracker features.
 - If backend sync is added, prefer treating cloud data as the source of truth after sign-in while preserving local import/export as migration and backup tools.
+- For any additional visual update or icon work, maintain the existing design language and theme: soft mobile-first baby-care UI, rounded compact controls, stroked inline SVG icons, and the established pink, lavender, teal, amber, and green status palette.
 - Test changes by opening `index.html` directly or serving the folder locally; there is no build command.
 
 ## Cache Busting
