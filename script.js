@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.15.11";
+const APP_VERSION = "2026.06.17.1";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -381,6 +381,18 @@ function getDateKeyFromStorageKey(key) {
   return String(key).slice(TRACKER_PREFIX.length);
 }
 
+function getDateFromDateKey(dateKey) {
+  return new Date(`${dateKey}T00:00:00`);
+}
+
+function getDateFromDateOrKey(dateOrKey) {
+  return typeof dateOrKey === "string" ? getDateFromDateKey(dateOrKey) : dateOrKey;
+}
+
+function cacheCloudDay(dateOrKey, entries) {
+  return localTrackerStore.saveDay(getDateFromDateOrKey(dateOrKey), entries);
+}
+
 function isFirebaseConfigComplete(config) {
   return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"].every((key) =>
     Boolean(String(config?.[key] || "").trim())
@@ -509,13 +521,23 @@ function createCloudTrackerStore(modules, db, authUser) {
     await ensureFamilyMembership();
 
     const snapshot = await modules.getDocs(entriesRef(dateOrKey));
-    return normalizeLoadedDay(snapshot.docs.map((entryDoc) => ({ id: entryDoc.id, ...entryDoc.data() }))).entries;
+    const entries = normalizeLoadedDay(snapshot.docs.map((entryDoc) => ({ id: entryDoc.id, ...entryDoc.data() }))).entries;
+    cacheCloudDay(dateOrKey, entries);
+    return entries;
   }
 
   return {
     isCloud: true,
+    lastLoadUsedCache: false,
     async loadDay(date) {
-      return loadDayEntries(date);
+      this.lastLoadUsedCache = false;
+
+      try {
+        return await loadDayEntries(date);
+      } catch (error) {
+        this.lastLoadUsedCache = true;
+        return localTrackerStore.loadDay(date);
+      }
     },
     async saveDay(date, entries) {
       await ensureFamilyMembership();
@@ -547,6 +569,7 @@ function createCloudTrackerStore(modules, db, authUser) {
       });
 
       await batch.commit();
+      cacheCloudDay(date, normalizedEntries);
       return normalizedEntries;
     },
     async saveEntry(date, entry) {
@@ -571,6 +594,7 @@ function createCloudTrackerStore(modules, db, authUser) {
 
       batch.set(entryDoc, getCloudEntryData(normalizedEntry, userContext, existingIds), { merge: true });
       await batch.commit();
+      localTrackerStore.saveEntry(date, normalizedEntry);
       return normalizedEntry;
     },
     async deleteEntry(date, entryId) {
@@ -584,6 +608,7 @@ function createCloudTrackerStore(modules, db, authUser) {
       }, { merge: true });
       batch.delete(modules.doc(db, "families", familyId, "days", getDateKey(date), "entries", entryId));
       await batch.commit();
+      localTrackerStore.deleteEntry(date, entryId);
     },
     async clearDay(date) {
       await ensureFamilyMembership();
@@ -594,6 +619,7 @@ function createCloudTrackerStore(modules, db, authUser) {
       snapshot.docs.forEach((entryDoc) => batch.delete(entryDoc.ref));
       batch.delete(dayRef(date));
       await batch.commit();
+      localTrackerStore.clearDay(date);
     },
     async hasDayKey(key) {
       if (!isTrackerStorageKey(key)) {
@@ -638,6 +664,7 @@ function createCloudTrackerStore(modules, db, authUser) {
         entriesRef(date),
         (snapshot) => {
           const entries = normalizeLoadedDay(snapshot.docs.map((entryDoc) => ({ id: entryDoc.id, ...entryDoc.data() }))).entries;
+          cacheCloudDay(date, entries);
           handleEntries(entries);
         },
         handleError
@@ -707,6 +734,10 @@ async function loadDay() {
 
   try {
     dayData = await trackerStore.loadDay(loadingDate);
+
+    if (trackerStore.isCloud) {
+      updateSyncStatus(trackerStore.lastLoadUsedCache ? "Offline cache" : "Cloud sync", trackerStore.lastLoadUsedCache ? "error" : "cloud");
+    }
   } catch (error) {
     dayData = [];
     updateSyncStatus(trackerStore.isCloud ? "Cloud error" : "Local only", trackerStore.isCloud ? "error" : "local");
