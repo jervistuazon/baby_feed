@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#fff7f8">
   <title>Anya Baby Tracker</title>
-  <link rel="stylesheet" href="style.css?v=2026.06.17.1">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css?v=2026.07.20.1">
 </head>
 <body>
   <svg class="icon-sprite" aria-hidden="true" focusable="false">
@@ -219,6 +220,18 @@
     </section>
 
     <main>
+      <section id="insightsSection" class="insights-section">
+        <button id="toggleInsightsButton" class="insights-toggle" type="button" aria-expanded="false" aria-controls="insightsContent">
+          <span class="insights-toggle-text">Weekly Insights &amp; Trends</span>
+          <svg class="icon-glyph toggle-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+        </button>
+        <div id="insightsContent" class="insights-content hidden">
+          <div class="insight-chart-wrap" id="heatmapWrap"></div>
+          <div class="insight-chart-wrap" id="milkChartWrap"></div>
+          <div class="insight-chart-wrap" id="diaperChartWrap"></div>
+        </div>
+      </section>
+
       <div class="timeline-toolbar">
         <span class="timeline-toolbar-icon" aria-hidden="true"><svg class="icon-glyph"><use href="#icon-file"></use></svg></span>
         <strong>Entries for the day</strong>
@@ -305,7 +318,9 @@
     </section>
   </div>
 
-  <script src="firebase-config.js?v=2026.06.17.1"></script>
-  <script src="script.js?v=2026.06.17.1"></script>
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <script src="firebase-config.js?v=2026.07.20.1"></script>
+  <script src="script.js?v=2026.07.20.1"></script>
 </body>
 </html>

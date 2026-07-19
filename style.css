@@ -1529,3 +1529,186 @@ body.modal-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   INSIGHTS SECTION & SVG CHARTS
+   ========================================================================== */
+.insights-section {
+  background-color: var(--surface-bg);
+  border-radius: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+.insights-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+}
+.insights-toggle .toggle-icon {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.3s ease;
+}
+.insights-toggle[aria-expanded="true"] .toggle-icon {
+  transform: rotate(180deg);
+}
+.insights-content {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.insights-content.hidden {
+  display: none;
+}
+.insight-chart-wrap {
+  width: 100%;
+}
+.insight-chart-wrap h3 {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 8px 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.insight-chart-wrap svg {
+  width: 100%;
+  height: 120px;
+  display: block;
+  overflow: visible;
+}
+.insight-chart-wrap svg text {
+  font-family: inherit;
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+.insight-chart-wrap svg .grid-line {
+  stroke: rgba(0, 0, 0, 0.05);
+  stroke-width: 1;
+  stroke-dasharray: 4;
+}
+.insight-chart-wrap svg rect {
+  transition: opacity 0.2s ease, transform 0.3s ease;
+  transform-origin: bottom;
+}
+.insight-chart-wrap svg rect:hover {
+  opacity: 0.8;
+}
+.empty-chart-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 24px 0;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+}
+
+/* ==========================================================================
+   SWIPE GESTURES
+   ========================================================================== */
+.timeline-entry-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background-color: var(--surface-bg);
+}
+.timeline-entry-wrapper .timeline-entry {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 0;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+  background-color: var(--surface-bg);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+.timeline-entry-wrapper .swipe-actions {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1;
+  padding: 0 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.swipe-action-left {
+  color: #e53935; /* Delete red */
+}
+.swipe-action-right {
+  color: var(--text-main); /* Edit text */
+}
+
+.timeline-entry-wrapper.deleting {
+  transition: all 0.3s ease;
+  transform: scale(0.95);
+  opacity: 0;
+  margin-bottom: -72px; /* Approx height collapse */
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   TOAST NOTIFICATIONS
+   ========================================================================== */
+.toast-container {
+  position: fixed;
+  bottom: 80px;
+  left: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background-color: #333333;
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  pointer-events: auto;
+  animation: slideUpToast 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+.toast.hiding {
+  animation: fadeOutToast 0.3s ease forwards;
+}
+.toast-content {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.toast-undo {
+  background: transparent;
+  border: none;
+  color: #ff9bbc;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-left: 12px;
+}
+@keyframes slideUpToast {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeOutToast {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(10px); }
+}
+

@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.17.1";
+const APP_VERSION = "2026.07.20.1";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -1022,7 +1022,43 @@ function createEntryRow(entry) {
     openActivityModal(entry.id);
   });
 
-  return row;
+  const wrapper = document.createElement("div");
+  wrapper.className = "timeline-entry-wrapper";
+
+  const swipeActions = document.createElement("div");
+  swipeActions.className = "swipe-actions";
+  swipeActions.innerHTML = '<span class="swipe-action-left">Delete</span><span class="swipe-action-right">Edit</span>';
+
+  wrapper.appendChild(swipeActions);
+  wrapper.appendChild(row);
+
+  let touchStartX = 0;
+  let currentX = 0;
+
+  row.addEventListener("touchstart", (e) => {
+    touchStartX = e.touches[0].clientX;
+    row.style.transition = "none";
+  }, { passive: true });
+
+  row.addEventListener("touchmove", (e) => {
+    currentX = e.touches[0].clientX - touchStartX;
+    if (currentX > 80) currentX = 80;
+    if (currentX < -80) currentX = -80;
+    row.style.transform = `translateX(${currentX}px)`;
+  });
+
+  row.addEventListener("touchend", () => {
+    row.style.transition = "transform 0.2s cubic-bezier(0.2, 0, 0, 1)";
+    if (currentX < -60) {
+      initiateDelete(entry.id);
+    } else if (currentX > 60) {
+      openActivityModal(entry.id);
+    }
+    row.style.transform = "translateX(0)";
+    currentX = 0;
+  });
+
+  return wrapper;
 }
 
 function createEmptyTimeline() {
@@ -1193,30 +1229,19 @@ async function saveActivityModal() {
     return;
   }
 
+  if ("vibrate" in navigator) {
+    navigator.vibrate(50);
+  }
+
   renderTimeline();
   updateSummary();
   closeActivityModal();
 }
 
-async function deleteActivityEntry() {
+function deleteActivityEntry() {
   if (activeEntryId) {
-    try {
-      if (trackerStore.deleteEntry) {
-        await trackerStore.deleteEntry(selectedDate, activeEntryId);
-      } else {
-        dayData = dayData.filter((entry) => entry.id !== activeEntryId);
-        await saveDay();
-      }
-
-      dayData = dayData.filter((entry) => entry.id !== activeEntryId);
-      renderTimeline();
-      updateSummary();
-    } catch (error) {
-      window.alert(trackerStore.isCloud ? "Couldn't delete this cloud entry." : "Couldn't delete this entry.");
-      return;
-    }
+    initiateDelete(activeEntryId);
   }
-
   closeActivityModal();
 }
 
@@ -1725,3 +1750,261 @@ window.addEventListener("resize", updateStickyOffset);
 
 loadDay();
 initializeFirebase();
+
+// ==========================================
+// TOAST NOTIFICATIONS & UNDO
+// ==========================================
+const pendingDeletions = new Map();
+let currentToast = null;
+
+function showToast(message, undoCallback) {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+  container.innerHTML = ""; // Clear existing
+
+  const toast = document.createElement("div");
+  toast.className = "toast";
+
+  const text = document.createElement("span");
+  text.className = "toast-content";
+  text.textContent = message;
+  toast.appendChild(text);
+
+  if (undoCallback) {
+    const undoBtn = document.createElement("button");
+    undoBtn.type = "button";
+    undoBtn.className = "toast-undo";
+    undoBtn.textContent = "Undo";
+    undoBtn.onclick = () => {
+      undoCallback();
+      hideToast(toast);
+    };
+    toast.appendChild(undoBtn);
+  }
+
+  container.appendChild(toast);
+  currentToast = toast;
+
+  if (!undoCallback) {
+    setTimeout(() => hideToast(toast), 3000);
+  }
+}
+
+function hideToast(toast) {
+  if (!toast) return;
+  toast.classList.add("hiding");
+  setTimeout(() => {
+    if (toast.parentNode) toast.remove();
+  }, 300);
+}
+
+function initiateDelete(entryId) {
+  const row = trackerGrid.querySelector(`[data-entry-id="${entryId}"]`);
+  const wrapper = row ? row.closest(".timeline-entry-wrapper") : null;
+
+  if (wrapper) wrapper.classList.add("deleting");
+
+  const entryIndex = dayData.findIndex(e => e.id === entryId);
+  if (entryIndex === -1) return;
+  const entryObj = dayData[entryIndex];
+
+  dayData = dayData.filter(e => e.id !== entryId);
+  updateSummary();
+
+  const dateAtDeletion = selectedDate;
+
+  const timeoutId = setTimeout(async () => {
+    pendingDeletions.delete(entryId);
+    if (wrapper) wrapper.remove();
+    try {
+      if (trackerStore.deleteEntry && trackerStore.isCloud) {
+        await trackerStore.deleteEntry(dateAtDeletion, entryId);
+      } else {
+        // Local only fallback to directly mutate local storage
+        const dayStr = String(dateAtDeletion.getFullYear()) + "-" +
+                       String(dateAtDeletion.getMonth() + 1).padStart(2, "0") + "-" +
+                       String(dateAtDeletion.getDate()).padStart(2, "0");
+        const key = `${TRACKER_PREFIX}${dayStr}`;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            let entries = JSON.parse(stored);
+            if (Array.isArray(entries)) {
+              entries = entries.filter(e => e.id !== entryId);
+              localStorage.setItem(key, JSON.stringify(entries));
+            }
+          } catch(e) {}
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }, 5000);
+
+  pendingDeletions.set(entryId, { timeoutId, entryObj, wrapper });
+
+  showToast("Entry deleted", () => {
+    clearTimeout(timeoutId);
+    pendingDeletions.delete(entryId);
+
+    if (selectedDate === dateAtDeletion) {
+      dayData.push(entryObj);
+      dayData.sort((a, b) => a.timeMinutes - b.timeMinutes || a.id.localeCompare(b.id));
+      updateSummary();
+      if (wrapper) wrapper.classList.remove("deleting");
+      renderTimeline(); // fresh render to fix layout
+    }
+  });
+}
+
+// ==========================================
+// WEEKLY INSIGHTS
+// ==========================================
+const insightsSection = document.getElementById("insightsSection");
+const toggleInsightsButton = document.getElementById("toggleInsightsButton");
+const insightsContent = document.getElementById("insightsContent");
+const heatmapWrap = document.getElementById("heatmapWrap");
+const milkChartWrap = document.getElementById("milkChartWrap");
+const diaperChartWrap = document.getElementById("diaperChartWrap");
+
+if (toggleInsightsButton) {
+  toggleInsightsButton.addEventListener("click", async () => {
+    const isExpanded = toggleInsightsButton.getAttribute("aria-expanded") === "true";
+    toggleInsightsButton.setAttribute("aria-expanded", !isExpanded);
+    if (!isExpanded) {
+      insightsContent.classList.remove("hidden");
+      await renderInsights();
+    } else {
+      insightsContent.classList.add("hidden");
+    }
+  });
+}
+
+async function fetchPast7Days() {
+  const data = [];
+  const today = new Date(selectedDate);
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dayDataObj = await trackerStore.loadDay(d);
+    data.push({ date: d, entries: dayDataObj });
+  }
+  return data;
+}
+
+function createSVGNode(name, attrs = {}) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const [k, v] of Object.entries(attrs)) {
+    el.setAttribute(k, v);
+  }
+  return el;
+}
+
+async function renderInsights() {
+  heatmapWrap.innerHTML = "<h3>24h Daily Heatmap</h3>";
+  milkChartWrap.innerHTML = "<h3>7-Day Milk Intake (ml)</h3>";
+  diaperChartWrap.innerHTML = "<h3>7-Day Diaper Changes</h3>";
+
+  const weeklyData = await fetchPast7Days();
+  const hasData = weeklyData.some(d => d.entries && d.entries.length > 0);
+
+  if (!hasData) {
+    const msg1 = document.createElement("div"); msg1.className = "empty-chart-text"; msg1.textContent = "No data available";
+    heatmapWrap.appendChild(msg1.cloneNode(true));
+    milkChartWrap.appendChild(msg1.cloneNode(true));
+    diaperChartWrap.appendChild(msg1.cloneNode(true));
+    return;
+  }
+
+  renderHeatmap(weeklyData[6]); // Today
+  renderMilkChart(weeklyData);
+  renderDiaperChart(weeklyData);
+}
+
+function renderHeatmap(dayDataObj) {
+  const svg = createSVGNode("svg", { viewBox: "0 0 240 40", preserveAspectRatio: "none" });
+  svg.appendChild(createSVGNode("line", { x1: 0, y1: 20, x2: 240, y2: 20, class: "grid-line" }));
+
+  if (dayDataObj.entries) {
+    dayDataObj.entries.forEach(entry => {
+      const x = (entry.timeMinutes / 1440) * 240;
+      let color = "#cbd5e1";
+      if (entry.milk) color = "#f45f91";
+      else if (entry.poop) color = "#8b5cf6";
+      else if (entry.pee) color = "#0ea5e9";
+
+      svg.appendChild(createSVGNode("circle", { cx: x, cy: 20, r: 4, fill: color }));
+    });
+  }
+  heatmapWrap.appendChild(svg);
+}
+
+function renderMilkChart(weeklyData) {
+  const svg = createSVGNode("svg", { viewBox: "0 0 210 100", preserveAspectRatio: "xMidYMax meet" });
+  let maxMilk = 100;
+  const totals = weeklyData.map(d => {
+    return d.entries ? d.entries.reduce((sum, e) => sum + (e.milk && e.milkAmountMl ? e.milkAmountMl : 0), 0) : 0;
+  });
+  totals.forEach(t => { if (t > maxMilk) maxMilk = t; });
+
+  totals.forEach((total, i) => {
+    const h = (total / maxMilk) * 80;
+    const x = i * 30 + 5;
+    const y = 90 - h;
+    svg.appendChild(createSVGNode("rect", { x, y, width: 20, height: h, fill: "#f45f91", rx: 3 }));
+
+    const dateStr = weeklyData[i].date.toLocaleDateString("en-US", { weekday: "short" });
+    const text = createSVGNode("text", { x: x + 10, y: 100, "text-anchor": "middle" });
+    text.textContent = dateStr[0];
+    svg.appendChild(text);
+  });
+  milkChartWrap.appendChild(svg);
+}
+
+function renderDiaperChart(weeklyData) {
+  const svg = createSVGNode("svg", { viewBox: "0 0 210 100", preserveAspectRatio: "xMidYMax meet" });
+  let maxDiapers = 5;
+
+  const stats = weeklyData.map(d => {
+    let pee = 0; let poop = 0;
+    if (d.entries) {
+      d.entries.forEach(e => {
+        if (e.pee) pee++;
+        if (e.poop) poop++;
+      });
+    }
+    if (pee + poop > maxDiapers) maxDiapers = pee + poop;
+    return { pee, poop };
+  });
+
+  stats.forEach((stat, i) => {
+    const totalH = ((stat.pee + stat.poop) / maxDiapers) * 80;
+    const peeH = (stat.pee / maxDiapers) * 80;
+    const poopH = (stat.poop / maxDiapers) * 80;
+    const x = i * 30 + 5;
+
+    if (stat.poop > 0) {
+      svg.appendChild(createSVGNode("rect", { x, y: 90 - poopH, width: 20, height: poopH, fill: "#8b5cf6", rx: 2 }));
+    }
+    if (stat.pee > 0) {
+      svg.appendChild(createSVGNode("rect", { x, y: 90 - poopH - peeH, width: 20, height: peeH, fill: "#0ea5e9", rx: 2 }));
+    }
+
+    const dateStr = weeklyData[i].date.toLocaleDateString("en-US", { weekday: "short" });
+    const text = createSVGNode("text", { x: x + 10, y: 100, "text-anchor": "middle" });
+    text.textContent = dateStr[0];
+    svg.appendChild(text);
+  });
+  diaperChartWrap.appendChild(svg);
+}
+
+// ==========================================
+// SERVICE WORKER
+// ==========================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => {
+      console.log('ServiceWorker registration failed: ', err);
+    });
+  });
+}

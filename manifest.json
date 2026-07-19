@@ -1,0 +1,15 @@
+{
+  "name": "Anya Baby Tracker",
+  "short_name": "Anya",
+  "start_url": "./",
+  "display": "standalone",
+  "theme_color": "#fff8fa",
+  "background_color": "#fff8fa",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ]
+}
