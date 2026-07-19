@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.07.20.1";
+const APP_VERSION = "2026.07.20.2";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -389,9 +389,30 @@ function getDateFromDateOrKey(dateOrKey) {
   return typeof dateOrKey === "string" ? getDateFromDateKey(dateOrKey) : dateOrKey;
 }
 
-function cacheCloudDay(dateOrKey, entries) {
-  return localTrackerStore.saveDay(getDateFromDateOrKey(dateOrKey), entries);
+const CLOUD_CACHE_PREFIX = "anya-cloud-cache-";
+
+function getCloudCacheKey(date) {
+  return `${CLOUD_CACHE_PREFIX}${getDateKey(date)}`;
 }
+
+function cacheCloudDay(dateOrKey, entries) {
+  const date = getDateFromDateOrKey(dateOrKey);
+  const key = getCloudCacheKey(date);
+  const normalizedEntries = normalizeEntries(entries);
+  if (normalizedEntries.length) {
+    localStorage.setItem(key, JSON.stringify(normalizedEntries));
+  } else {
+    localStorage.removeItem(key);
+  }
+}
+
+function loadCloudCacheDay(date) {
+  const key = getCloudCacheKey(date);
+  const saved = localStorage.getItem(key);
+  const normalized = normalizeLoadedDay(saved ? JSON.parse(saved) : null);
+  return normalized.entries;
+}
+
 
 function isFirebaseConfigComplete(config) {
   return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"].every((key) =>
@@ -536,7 +557,7 @@ function createCloudTrackerStore(modules, db, authUser) {
         return await loadDayEntries(date);
       } catch (error) {
         this.lastLoadUsedCache = true;
-        return localTrackerStore.loadDay(date);
+        return loadCloudCacheDay(date);
       }
     },
     async saveDay(date, entries) {
@@ -620,6 +641,7 @@ function createCloudTrackerStore(modules, db, authUser) {
       batch.delete(dayRef(date));
       await batch.commit();
       localTrackerStore.clearDay(date);
+      localStorage.removeItem(getCloudCacheKey(date));
     },
     async hasDayKey(key) {
       if (!isTrackerStorageKey(key)) {
@@ -1027,7 +1049,7 @@ function createEntryRow(entry) {
 
   const swipeActions = document.createElement("div");
   swipeActions.className = "swipe-actions";
-  swipeActions.innerHTML = '<span class="swipe-action-left">Delete</span><span class="swipe-action-right">Edit</span>';
+  swipeActions.innerHTML = '<span class="swipe-action-left">Edit</span><span class="swipe-action-right">Delete</span>';
 
   wrapper.appendChild(swipeActions);
   wrapper.appendChild(row);
@@ -1045,6 +1067,21 @@ function createEntryRow(entry) {
     if (currentX > 80) currentX = 80;
     if (currentX < -80) currentX = -80;
     row.style.transform = `translateX(${currentX}px)`;
+
+    const leftAction = swipeActions.querySelector(".swipe-action-left");
+    const rightAction = swipeActions.querySelector(".swipe-action-right");
+    if (leftAction && rightAction) {
+      if (currentX > 0) {
+        leftAction.style.opacity = Math.min(1, currentX / 40);
+        rightAction.style.opacity = 0;
+      } else if (currentX < 0) {
+        leftAction.style.opacity = 0;
+        rightAction.style.opacity = Math.min(1, -currentX / 40);
+      } else {
+        leftAction.style.opacity = 0;
+        rightAction.style.opacity = 0;
+      }
+    }
   });
 
   row.addEventListener("touchend", () => {
@@ -1055,6 +1092,14 @@ function createEntryRow(entry) {
       openActivityModal(entry.id);
     }
     row.style.transform = "translateX(0)";
+
+    const leftAction = swipeActions.querySelector(".swipe-action-left");
+    const rightAction = swipeActions.querySelector(".swipe-action-right");
+    if (leftAction && rightAction) {
+      leftAction.style.opacity = 0;
+      rightAction.style.opacity = 0;
+    }
+
     currentX = 0;
   });
 
@@ -1811,7 +1856,7 @@ function initiateDelete(entryId) {
   dayData = dayData.filter(e => e.id !== entryId);
   updateSummary();
 
-  const dateAtDeletion = selectedDate;
+  const dateAtDeletion = new Date(selectedDate);
 
   const timeoutId = setTimeout(async () => {
     pendingDeletions.delete(entryId);
@@ -1847,7 +1892,7 @@ function initiateDelete(entryId) {
     clearTimeout(timeoutId);
     pendingDeletions.delete(entryId);
 
-    if (selectedDate === dateAtDeletion) {
+    if (getDateKey(selectedDate) === getDateKey(dateAtDeletion)) {
       dayData.push(entryObj);
       dayData.sort((a, b) => a.timeMinutes - b.timeMinutes || a.id.localeCompare(b.id));
       updateSummary();
@@ -1922,49 +1967,164 @@ async function renderInsights() {
 }
 
 function renderHeatmap(dayDataObj) {
-  const svg = createSVGNode("svg", { viewBox: "0 0 240 40", preserveAspectRatio: "none" });
-  svg.appendChild(createSVGNode("line", { x1: 0, y1: 20, x2: 240, y2: 20, class: "grid-line" }));
+  const svg = createSVGNode("svg", { viewBox: "0 0 288 60", preserveAspectRatio: "xMidYMid meet" });
+
+  // Track background
+  svg.appendChild(createSVGNode("rect", {
+    x: 24,
+    y: 18,
+    width: 240,
+    height: 8,
+    rx: 4,
+    fill: "var(--bg-wash)",
+    stroke: "var(--border)",
+    "stroke-width": 1
+  }));
+
+  // Hour labels and tick marks
+  const ticks = [
+    { label: "12 AM", x: 24 },
+    { label: "6 AM", x: 84 },
+    { label: "12 PM", x: 144 },
+    { label: "6 PM", x: 204 },
+    { label: "12 AM", x: 264 }
+  ];
+
+  ticks.forEach(tick => {
+    // Tick mark
+    svg.appendChild(createSVGNode("line", {
+      x1: tick.x,
+      y1: 26,
+      x2: tick.x,
+      y2: 32,
+      stroke: "var(--muted)",
+      "stroke-width": 1,
+      opacity: 0.4
+    }));
+    // Label
+    const text = createSVGNode("text", {
+      x: tick.x,
+      y: 45,
+      "text-anchor": "middle",
+      fill: "var(--muted)",
+      "font-size": "9px",
+      "font-weight": "600"
+    });
+    text.textContent = tick.label;
+    svg.appendChild(text);
+  });
 
   if (dayDataObj.entries) {
     dayDataObj.entries.forEach(entry => {
-      const x = (entry.timeMinutes / 1440) * 240;
-      let color = "#cbd5e1";
-      if (entry.milk) color = "#f45f91";
-      else if (entry.poop) color = "#8b5cf6";
-      else if (entry.pee) color = "#0ea5e9";
+      const x = 24 + (entry.timeMinutes / 1440) * 240;
+      let fillVal = "var(--muted)";
+      if (entry.milk) fillVal = "var(--milk)";
+      else if (entry.poop) fillVal = "var(--poop)";
+      else if (entry.pee) fillVal = "var(--pee)";
+      else if (entry.notes) fillVal = "var(--notes)";
 
-      svg.appendChild(createSVGNode("circle", { cx: x, cy: 20, r: 4, fill: color }));
+      // Draw outer white circle for overlap pop
+      svg.appendChild(createSVGNode("circle", {
+        cx: x,
+        cy: 22,
+        r: 6,
+        fill: "#ffffff",
+        stroke: "rgba(0,0,0,0.05)",
+        "stroke-width": 0.5
+      }));
+      // Draw inner colored circle
+      svg.appendChild(createSVGNode("circle", {
+        cx: x,
+        cy: 22,
+        r: 4.5,
+        fill: fillVal
+      }));
     });
   }
   heatmapWrap.appendChild(svg);
 }
 
 function renderMilkChart(weeklyData) {
-  const svg = createSVGNode("svg", { viewBox: "0 0 210 100", preserveAspectRatio: "xMidYMax meet" });
-  let maxMilk = 100;
+  const svg = createSVGNode("svg", { viewBox: "0 0 240 120", preserveAspectRatio: "xMidYMid meet" });
+
+  // Calculate max milk (at least 200ml for scale)
+  let maxMilk = 200;
   const totals = weeklyData.map(d => {
     return d.entries ? d.entries.reduce((sum, e) => sum + (e.milk && e.milkAmountMl ? e.milkAmountMl : 0), 0) : 0;
   });
   totals.forEach(t => { if (t > maxMilk) maxMilk = t; });
 
-  totals.forEach((total, i) => {
-    const h = (total / maxMilk) * 80;
-    const x = i * 30 + 5;
-    const y = 90 - h;
-    svg.appendChild(createSVGNode("rect", { x, y, width: 20, height: h, fill: "#f45f91", rx: 3 }));
+  // Baseline
+  svg.appendChild(createSVGNode("line", {
+    x1: 10,
+    y1: 95,
+    x2: 230,
+    y2: 95,
+    stroke: "var(--hairline)",
+    "stroke-width": 1
+  }));
 
+  totals.forEach((total, i) => {
+    const h = total > 0 ? (total / maxMilk) * 70 : 0; // max height is 70px
+    const x = 20 + i * 30;
+    const y = 95 - h;
+
+    // Bar
+    if (total > 0) {
+      svg.appendChild(createSVGNode("rect", {
+        x,
+        y,
+        width: 20,
+        height: h,
+        fill: "var(--milk)",
+        rx: 4,
+        opacity: 0.85
+      }));
+
+      // Value label on top of bar
+      const valText = createSVGNode("text", {
+        x: x + 10,
+        y: y - 5,
+        "text-anchor": "middle",
+        fill: "var(--ink)",
+        "font-size": "9px",
+        "font-weight": "700"
+      });
+      valText.textContent = `${total}`;
+      svg.appendChild(valText);
+    } else {
+      // Small placeholder dot for days with no milk entries
+      svg.appendChild(createSVGNode("circle", {
+        cx: x + 10,
+        cy: 90,
+        r: 2,
+        fill: "var(--muted)",
+        opacity: 0.3
+      }));
+    }
+
+    // Weekday Label
     const dateStr = weeklyData[i].date.toLocaleDateString("en-US", { weekday: "short" });
-    const text = createSVGNode("text", { x: x + 10, y: 100, "text-anchor": "middle" });
-    text.textContent = dateStr[0];
+    const text = createSVGNode("text", {
+      x: x + 10,
+      y: 110,
+      "text-anchor": "middle",
+      fill: "var(--muted)",
+      "font-size": "9px",
+      "font-weight": "600"
+    });
+    text.textContent = dateStr;
     svg.appendChild(text);
   });
+
   milkChartWrap.appendChild(svg);
 }
 
 function renderDiaperChart(weeklyData) {
-  const svg = createSVGNode("svg", { viewBox: "0 0 210 100", preserveAspectRatio: "xMidYMax meet" });
-  let maxDiapers = 5;
+  const svg = createSVGNode("svg", { viewBox: "0 0 240 120", preserveAspectRatio: "xMidYMid meet" });
 
+  // Calculate max diaper count (at least 4 for scale)
+  let maxDiapers = 4;
   const stats = weeklyData.map(d => {
     let pee = 0; let poop = 0;
     if (d.entries) {
@@ -1977,24 +2137,86 @@ function renderDiaperChart(weeklyData) {
     return { pee, poop };
   });
 
+  // Baseline
+  svg.appendChild(createSVGNode("line", {
+    x1: 10,
+    y1: 95,
+    x2: 230,
+    y2: 95,
+    stroke: "var(--hairline)",
+    "stroke-width": 1
+  }));
+
   stats.forEach((stat, i) => {
-    const totalH = ((stat.pee + stat.poop) / maxDiapers) * 80;
-    const peeH = (stat.pee / maxDiapers) * 80;
-    const poopH = (stat.poop / maxDiapers) * 80;
-    const x = i * 30 + 5;
+    const total = stat.pee + stat.poop;
+    const peeH = stat.pee > 0 ? (stat.pee / maxDiapers) * 70 : 0;
+    const poopH = stat.poop > 0 ? (stat.poop / maxDiapers) * 70 : 0;
+    const x = 20 + i * 30;
 
-    if (stat.poop > 0) {
-      svg.appendChild(createSVGNode("rect", { x, y: 90 - poopH, width: 20, height: poopH, fill: "#8b5cf6", rx: 2 }));
-    }
-    if (stat.pee > 0) {
-      svg.appendChild(createSVGNode("rect", { x, y: 90 - poopH - peeH, width: 20, height: peeH, fill: "#0ea5e9", rx: 2 }));
+    // Stacked bars
+    if (total > 0) {
+      // Draw poop at the bottom
+      if (stat.poop > 0) {
+        svg.appendChild(createSVGNode("rect", {
+          x,
+          y: 95 - poopH,
+          width: 20,
+          height: poopH,
+          fill: "var(--poop)",
+          rx: stat.pee > 0 ? 0 : 4,
+          opacity: 0.85
+        }));
+      }
+
+      // Draw pee on top of poop
+      if (stat.pee > 0) {
+        svg.appendChild(createSVGNode("rect", {
+          x,
+          y: 95 - poopH - peeH,
+          width: 20,
+          height: peeH,
+          fill: "var(--pee)",
+          rx: 4,
+          opacity: 0.85
+        }));
+      }
+
+      // Value label on top of stacked bar (total count)
+      const valText = createSVGNode("text", {
+        x: x + 10,
+        y: 95 - poopH - peeH - 5,
+        "text-anchor": "middle",
+        fill: "var(--ink)",
+        "font-size": "9px",
+        "font-weight": "700"
+      });
+      valText.textContent = `${total}`;
+      svg.appendChild(valText);
+    } else {
+      // Small placeholder dot for days with no diaper entries
+      svg.appendChild(createSVGNode("circle", {
+        cx: x + 10,
+        cy: 90,
+        r: 2,
+        fill: "var(--muted)",
+        opacity: 0.3
+      }));
     }
 
+    // Weekday Label
     const dateStr = weeklyData[i].date.toLocaleDateString("en-US", { weekday: "short" });
-    const text = createSVGNode("text", { x: x + 10, y: 100, "text-anchor": "middle" });
-    text.textContent = dateStr[0];
+    const text = createSVGNode("text", {
+      x: x + 10,
+      y: 110,
+      "text-anchor": "middle",
+      fill: "var(--muted)",
+      "font-size": "9px",
+      "font-weight": "600"
+    });
+    text.textContent = dateStr;
     svg.appendChild(text);
   });
+
   diaperChartWrap.appendChild(svg);
 }
 

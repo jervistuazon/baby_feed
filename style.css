@@ -1534,10 +1534,11 @@ body.modal-open {
    INSIGHTS SECTION & SVG CHARTS
    ========================================================================== */
 .insights-section {
-  background-color: var(--surface-bg);
-  border-radius: 16px;
+  background-color: var(--surface);
+  border-radius: var(--radius);
   margin-bottom: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border);
+  box-shadow: var(--soft-shadow);
   overflow: hidden;
 }
 .insights-toggle {
@@ -1545,41 +1546,80 @@ body.modal-open {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: 16px 20px;
   background: transparent;
   border: none;
   font-family: inherit;
-  font-weight: 600;
-  color: var(--text-main);
+  font-weight: 700;
+  color: var(--ink);
   cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.insights-toggle:hover {
+  background-color: var(--surface-soft);
 }
 .insights-toggle .toggle-icon {
   width: 20px;
   height: 20px;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s ease;
+  transform: rotate(90deg); /* Points down when collapsed */
+  color: var(--muted);
 }
 .insights-toggle[aria-expanded="true"] .toggle-icon {
-  transform: rotate(180deg);
+  transform: rotate(270deg); /* Points up when expanded */
+  color: var(--milk);
 }
 .insights-content {
-  padding: 0 16px 16px;
+  padding: 0 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 .insights-content.hidden {
   display: none;
 }
+.insights-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.legend-dot.milk-dot { background-color: var(--milk); }
+.legend-dot.pee-dot { background-color: var(--pee); }
+.legend-dot.poop-dot { background-color: var(--poop); }
+.legend-dot.notes-dot { background-color: var(--notes); }
+
 .insight-chart-wrap {
   width: 100%;
+  background: var(--surface-soft);
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
 }
 .insight-chart-wrap h3 {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin: 0 0 8px 4px;
-  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin: 0 0 12px 0;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 }
 .insight-chart-wrap svg {
   width: 100%;
@@ -1587,30 +1627,35 @@ body.modal-open {
   display: block;
   overflow: visible;
 }
+.insight-chart-wrap#heatmapWrap svg {
+  height: 60px; /* heatmap is shorter and wider */
+}
 .insight-chart-wrap svg text {
   font-family: inherit;
-  font-size: 10px;
-  fill: var(--text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  fill: var(--muted);
 }
 .insight-chart-wrap svg .grid-line {
-  stroke: rgba(0, 0, 0, 0.05);
+  stroke: var(--hairline);
   stroke-width: 1;
-  stroke-dasharray: 4;
 }
 .insight-chart-wrap svg rect {
   transition: opacity 0.2s ease, transform 0.3s ease;
   transform-origin: bottom;
 }
 .insight-chart-wrap svg rect:hover {
-  opacity: 0.8;
+  opacity: 0.7;
 }
 .empty-chart-text {
-  font-size: 14px;
-  color: var(--text-muted);
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
   text-align: center;
-  padding: 24px 0;
-  background-color: rgba(0, 0, 0, 0.02);
+  padding: 20px 0;
+  background-color: var(--bg);
   border-radius: 8px;
+  border: 1px dashed var(--hairline);
 }
 
 /* ==========================================================================
@@ -1619,16 +1664,16 @@ body.modal-open {
 .timeline-entry-wrapper {
   position: relative;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 14px;
   margin-bottom: 12px;
-  background-color: var(--surface-bg);
+  background-color: var(--surface);
 }
 .timeline-entry-wrapper .timeline-entry {
   position: relative;
   z-index: 2;
   margin-bottom: 0;
   transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
-  background-color: var(--surface-bg);
+  background-color: var(--surface);
   box-shadow: 0 2px 8px rgba(0,0,0,0.02);
 }
 .timeline-entry-wrapper .swipe-actions {
@@ -1638,18 +1683,31 @@ body.modal-open {
   right: 0;
   bottom: 0;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
   z-index: 1;
-  padding: 0 20px;
   font-weight: 600;
   font-size: 0.9rem;
 }
+.swipe-action-left,
+.swipe-action-right {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  flex: 1;
+  transition: opacity 0.2s ease;
+  opacity: 0;
+}
 .swipe-action-left {
-  color: #e53935; /* Delete red */
+  justify-content: flex-start;
+  background-color: var(--notes-soft);
+  color: var(--notes);
+  border-radius: 14px 0 0 14px;
 }
 .swipe-action-right {
-  color: var(--text-main); /* Edit text */
+  justify-content: flex-end;
+  background-color: var(--alert-soft);
+  color: var(--alert);
+  border-radius: 0 14px 14px 0;
 }
 
 .timeline-entry-wrapper.deleting {

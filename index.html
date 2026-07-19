@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#fff7f8">
   <title>Anya Baby Tracker</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=2026.07.20.1">
+  <link rel="stylesheet" href="style.css?v=2026.07.20.2">
 </head>
 <body>
   <svg class="icon-sprite" aria-hidden="true" focusable="false">
@@ -226,6 +226,12 @@
           <svg class="icon-glyph toggle-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
         </button>
         <div id="insightsContent" class="insights-content hidden">
+          <div class="insights-legend" aria-hidden="true">
+            <span class="legend-item"><span class="legend-dot milk-dot"></span> Milk</span>
+            <span class="legend-item"><span class="legend-dot pee-dot"></span> Pee</span>
+            <span class="legend-item"><span class="legend-dot poop-dot"></span> Poop</span>
+            <span class="legend-item"><span class="legend-dot notes-dot"></span> Note</span>
+          </div>
           <div class="insight-chart-wrap" id="heatmapWrap"></div>
           <div class="insight-chart-wrap" id="milkChartWrap"></div>
           <div class="insight-chart-wrap" id="diaperChartWrap"></div>
@@ -320,7 +326,7 @@
 
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
-  <script src="firebase-config.js?v=2026.07.20.1"></script>
-  <script src="script.js?v=2026.07.20.1"></script>
+  <script src="firebase-config.js?v=2026.07.20.2"></script>
+  <script src="script.js?v=2026.07.20.2"></script>
 </body>
 </html>
