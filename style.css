@@ -573,7 +573,9 @@ main {
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .timeline-toolbar {
@@ -655,19 +657,26 @@ main {
 .tracker-timeline {
   position: relative;
   display: grid;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   align-content: start;
   gap: 8px;
   margin-bottom: 0;
-  padding: 0 0 calc(94px + env(safe-area-inset-bottom));
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
+  overflow: visible;
+}
+
+.app-footer {
+  flex: 0 0 auto;
+  padding: 8px 0 calc(94px + env(safe-area-inset-bottom));
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .timeline-entry {
@@ -1551,6 +1560,7 @@ body.modal-open {
    INSIGHTS SECTION & SVG CHARTS
    ========================================================================== */
 .insights-section {
+  flex: 0 0 auto;
   background-color: var(--surface);
   border-radius: var(--radius);
   margin-bottom: 24px;
@@ -1674,6 +1684,27 @@ body.modal-open {
   background-color: var(--bg);
   border-radius: 8px;
   border: 1px dashed var(--hairline);
+}
+
+.chart-loading {
+  min-height: 60px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.insight-load-warning {
+  margin-bottom: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(223, 94, 105, 0.18);
+  border-radius: 8px;
+  background: var(--alert-soft);
+  color: var(--alert);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 /* ==========================================================================

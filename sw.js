@@ -1,11 +1,11 @@
-const CACHE_NAME = 'anya-cache-2026.07.20.3';
+const CACHE_NAME = 'anya-cache-2026.07.20.6';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './style.css?v=2026.07.20.3',
-  './script.js?v=2026.07.20.3',
-  './firebase-config.js?v=2026.07.20.3',
+  './style.css?v=2026.07.20.6',
+  './script.js?v=2026.07.20.6',
+  './firebase-config.js?v=2026.07.20.6',
   './manifest.json',
   './icon.svg'
 ];

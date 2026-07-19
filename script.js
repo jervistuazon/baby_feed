@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.07.20.3";
+const APP_VERSION = "2026.07.20.6";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -21,9 +21,14 @@ const ACTIVITY_META = {
 };
 
 document.documentElement.dataset.appVersion = APP_VERSION;
+const appVersion = document.getElementById("appVersion");
+if (appVersion) {
+  appVersion.textContent = APP_VERSION;
+}
 
 const selectedDateText = document.getElementById("selectedDateText");
 const dailyPanel = document.querySelector(".daily-panel");
+const mainContent = document.querySelector("main");
 const previousDayButton = document.getElementById("previousDay");
 const todayButton = document.getElementById("todayButton");
 const nextDayButton = document.getElementById("nextDay");
@@ -73,6 +78,8 @@ let activeEntryDraft = null;
 let firebaseAuth = null;
 let firebaseUser = null;
 let cloudUnsubscribe = null;
+let dayLoadSequence = 0;
+let insightsRenderSequence = 0;
 
 function createEmptySlot() {
   return {
@@ -550,15 +557,25 @@ function createCloudTrackerStore(modules, db, authUser) {
   return {
     isCloud: true,
     lastLoadUsedCache: false,
-    async loadDay(date) {
-      this.lastLoadUsedCache = false;
-
+    async loadDayWithStatus(date) {
       try {
-        return await loadDayEntries(date);
+        return {
+          entries: await loadDayEntries(date),
+          usedCache: false,
+          loadFailed: false
+        };
       } catch (error) {
-        this.lastLoadUsedCache = true;
-        return loadCloudCacheDay(date);
+        return {
+          entries: loadCloudCacheDay(date),
+          usedCache: true,
+          loadFailed: true
+        };
       }
+    },
+    async loadDay(date) {
+      const result = await this.loadDayWithStatus(date);
+      this.lastLoadUsedCache = result.usedCache;
+      return result.entries;
     },
     async saveDay(date, entries) {
       await ensureFamilyMembership();
@@ -615,7 +632,10 @@ function createCloudTrackerStore(modules, db, authUser) {
 
       batch.set(entryDoc, getCloudEntryData(normalizedEntry, userContext, existingIds), { merge: true });
       await batch.commit();
-      localTrackerStore.saveEntry(date, normalizedEntry);
+      cacheCloudDay(date, [
+        ...loadCloudCacheDay(date).filter((item) => item.id !== normalizedEntry.id),
+        normalizedEntry
+      ]);
       return normalizedEntry;
     },
     async deleteEntry(date, entryId) {
@@ -629,7 +649,7 @@ function createCloudTrackerStore(modules, db, authUser) {
       }, { merge: true });
       batch.delete(modules.doc(db, "families", familyId, "days", getDateKey(date), "entries", entryId));
       await batch.commit();
-      localTrackerStore.deleteEntry(date, entryId);
+      cacheCloudDay(date, loadCloudCacheDay(date).filter((entry) => entry.id !== entryId));
     },
     async clearDay(date) {
       await ensureFamilyMembership();
@@ -673,6 +693,45 @@ function createCloudTrackerStore(modules, db, authUser) {
         if (isTrackerStorageKey(key)) {
           await this.saveDay(new Date(`${getDateKeyFromStorageKey(key)}T00:00:00`), day);
         }
+      }
+    },
+    async importMissingEntries(days) {
+      await ensureFamilyMembership();
+
+      for (const { key, entries } of days) {
+        if (!isTrackerStorageKey(key)) {
+          continue;
+        }
+
+        const dateKey = getDateKeyFromStorageKey(key);
+        const existingSnapshot = await modules.getDocs(entriesRef(dateKey));
+        const existingEntries = normalizeLoadedDay(
+          existingSnapshot.docs.map((entryDoc) => ({ id: entryDoc.id, ...entryDoc.data() }))
+        ).entries;
+        const existingIds = new Set(existingEntries.map((entry) => entry.id));
+        const entriesToAdd = normalizeEntries(entries).filter((entry) => !existingIds.has(entry.id));
+
+        if (!entriesToAdd.length) {
+          continue;
+        }
+
+        const batch = modules.writeBatch(db);
+        batch.set(dayRef(dateKey), {
+          dateKey,
+          updatedAt: modules.serverTimestamp(),
+          updatedBy: authUser.uid
+        }, { merge: true });
+
+        entriesToAdd.forEach((entry) => {
+          batch.set(
+            modules.doc(db, "families", familyId, "days", dateKey, "entries", entry.id),
+            getCloudEntryData(entry, userContext, existingIds),
+            { merge: true }
+          );
+        });
+
+        await batch.commit();
+        cacheCloudDay(dateKey, [...existingEntries, ...entriesToAdd]);
       }
     },
     async canSeedCloud() {
@@ -751,22 +810,39 @@ function subscribeToSelectedDay(date) {
 }
 
 async function loadDay() {
+  const loadSequence = ++dayLoadSequence;
+  ++insightsRenderSequence;
   const loadingDate = new Date(selectedDate);
   const loadingDateKey = getDateKey(loadingDate);
+  const loadingStore = trackerStore;
+  let loadedEntries = [];
+  let loadUsedCache = false;
+  let loadError = null;
+
+  // Do not leave the previous day's listener active while a new day is loading.
+  clearCloudSubscription();
 
   try {
-    dayData = await trackerStore.loadDay(loadingDate);
-
-    if (trackerStore.isCloud) {
-      updateSyncStatus(trackerStore.lastLoadUsedCache ? "Offline cache" : "Cloud sync", trackerStore.lastLoadUsedCache ? "error" : "cloud");
+    if (loadingStore.loadDayWithStatus) {
+      const loadResult = await loadingStore.loadDayWithStatus(loadingDate);
+      loadedEntries = loadResult.entries;
+      loadUsedCache = loadResult.usedCache;
+    } else {
+      loadedEntries = await loadingStore.loadDay(loadingDate);
     }
   } catch (error) {
-    dayData = [];
-    updateSyncStatus(trackerStore.isCloud ? "Cloud error" : "Local only", trackerStore.isCloud ? "error" : "local");
+    loadError = error;
   }
 
-  if (getDateKey(selectedDate) !== loadingDateKey) {
+  if (loadSequence !== dayLoadSequence || trackerStore !== loadingStore || getDateKey(selectedDate) !== loadingDateKey) {
     return;
+  }
+
+  dayData = loadedEntries;
+  if (loadError) {
+    updateSyncStatus(loadingStore.isCloud ? "Cloud error" : "Local only", loadingStore.isCloud ? "error" : "local");
+  } else if (loadingStore.isCloud) {
+    updateSyncStatus(loadUsedCache ? "Offline cache" : "Cloud sync", loadUsedCache ? "error" : "cloud");
   }
 
   selectedDateText.textContent = isToday(selectedDate) ? "Today" : formatDisplayDate(selectedDate);
@@ -774,6 +850,10 @@ async function loadDay() {
   renderTimeline();
   updateSummary();
   subscribeToSelectedDay(loadingDate);
+
+  if (toggleInsightsButton?.getAttribute("aria-expanded") === "true") {
+    renderInsights();
+  }
 }
 
 async function saveDay() {
@@ -1205,10 +1285,6 @@ function renderTimeline() {
   entries.forEach((entry) => {
     trackerGrid.appendChild(createEntryRow(entry));
   });
-
-  window.requestAnimationFrame(() => {
-    trackerGrid.scrollTop = trackerGrid.scrollHeight;
-  });
 }
 
 function syncModalState() {
@@ -1314,6 +1390,8 @@ async function saveActivityModal() {
   }
 
   const entry = copyEntry(activeEntryDraft);
+  const isNewEntry = !activeEntryId;
+  let savedEntryId = entry.id;
   entry.notes = entry.notes.trim();
 
   if (!entryHasContent(entry)) {
@@ -1326,6 +1404,7 @@ async function saveActivityModal() {
       ? await trackerStore.saveEntry(selectedDate, entry)
       : null;
     const displayEntry = savedEntry || entry;
+    savedEntryId = displayEntry.id;
 
     if (activeEntryId) {
       dayData = normalizeEntries(dayData.map((item) => (item.id === activeEntryId ? displayEntry : item)));
@@ -1344,6 +1423,14 @@ async function saveActivityModal() {
   renderTimeline();
   updateSummary();
   closeActivityModal();
+
+  if (isNewEntry) {
+    window.requestAnimationFrame(() => {
+      const savedRow = [...trackerGrid.querySelectorAll("[data-entry-id]")]
+        .find((row) => row.dataset.entryId === savedEntryId);
+      savedRow?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  }
 }
 
 function deleteActivityEntry() {
@@ -1394,11 +1481,17 @@ function updateSummary() {
 
 function changeDay(offset) {
   selectedDate.setDate(selectedDate.getDate() + offset);
+  if (mainContent) {
+    mainContent.scrollTop = 0;
+  }
   loadDay();
 }
 
 function goToToday() {
   selectedDate = new Date();
+  if (mainContent) {
+    mainContent.scrollTop = 0;
+  }
   loadDay();
 }
 
@@ -1685,15 +1778,25 @@ async function offerLocalBackupImportToCloud(cloudStore) {
     return;
   }
 
-  if (getBackupDayCount(cloudBackup)) {
+  const entriesToCopyByDay = getImportDaysFromBackup(localBackup)
+    .map(({ key, day }) => {
+      const cloudEntries = normalizeLoadedDay(cloudBackup[key]).entries;
+      const cloudIds = new Set(cloudEntries.map((entry) => entry.id));
+      const entries = day.filter((entry) => !cloudIds.has(entry.id));
+      return { key, entries };
+    })
+    .filter(({ entries }) => entries.length);
+
+  if (!entriesToCopyByDay.length) {
     return;
   }
 
-  const localEntryCount = getBackupEntryCount(localBackup);
+  const localEntryCount = entriesToCopyByDay.reduce((total, { entries }) => total + entries.length, 0);
+  const localDayCountToCopy = entriesToCopyByDay.length;
   const signedInEmail = firebaseUser?.email || "this account";
   const familyId = getFirebaseFamilyId();
   const confirmed = window.confirm(
-    `Copy ${localEntryCount} local ${localEntryCount === 1 ? "entry" : "entries"} from ${localDayCount} ${localDayCount === 1 ? "day" : "days"} to cloud sync for ${familyId} as ${signedInEmail}?`
+    `Copy ${localEntryCount} local ${localEntryCount === 1 ? "entry" : "entries"} from ${localDayCountToCopy} ${localDayCountToCopy === 1 ? "day" : "days"} to cloud sync for ${familyId} as ${signedInEmail}? Entries already in cloud will not be changed.`
   );
 
   if (!confirmed) {
@@ -1702,7 +1805,7 @@ async function offerLocalBackupImportToCloud(cloudStore) {
 
   try {
     updateSyncStatus("Syncing local data", "cloud");
-    await cloudStore.importDays(getImportDaysFromBackup(localBackup));
+    await cloudStore.importMissingEntries(entriesToCopyByDay);
     updateSyncStatus("Cloud sync", "cloud");
   } catch (error) {
     updateSyncStatus("Cloud import failed", "error");
@@ -1989,15 +2092,27 @@ if (toggleInsightsButton) {
 }
 
 async function fetchPast7Days() {
-  const data = [];
   const today = new Date(selectedDate);
+  const insightsStore = trackerStore;
+  const dates = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const dayDataObj = await trackerStore.loadDay(d);
-    data.push({ date: d, entries: dayDataObj });
+    dates.push(d);
   }
-  return data;
+
+  return Promise.all(dates.map(async (date) => {
+    try {
+      if (insightsStore.loadDayWithStatus) {
+        const result = await insightsStore.loadDayWithStatus(date);
+        return { date, entries: result.entries, loadFailed: result.loadFailed };
+      }
+
+      return { date, entries: await insightsStore.loadDay(date), loadFailed: false };
+    } catch (error) {
+      return { date, entries: [], loadFailed: true };
+    }
+  }));
 }
 
 function createSVGNode(name, attrs = {}) {
@@ -2009,19 +2124,46 @@ function createSVGNode(name, attrs = {}) {
 }
 
 async function renderInsights() {
+  const renderSequence = ++insightsRenderSequence;
+  const loadingMarkup = '<div class="chart-loading" role="status">Loading saved entries…</div>';
+  insightsContent.setAttribute("aria-busy", "true");
+  heatmapWrap.innerHTML = `<h3>24h Daily Heatmap</h3>${loadingMarkup}`;
+  milkChartWrap.innerHTML = `<h3>7-Day Milk Intake (ml)</h3>${loadingMarkup}`;
+  diaperChartWrap.innerHTML = `<h3>7-Day Diaper Changes</h3>${loadingMarkup}`;
+
+  let weeklyData;
+  try {
+    weeklyData = await fetchPast7Days();
+  } catch (error) {
+    if (renderSequence !== insightsRenderSequence) return;
+    weeklyData = [];
+  }
+
+  if (renderSequence !== insightsRenderSequence) return;
+  insightsContent.setAttribute("aria-busy", "false");
   heatmapWrap.innerHTML = "<h3>24h Daily Heatmap</h3>";
   milkChartWrap.innerHTML = "<h3>7-Day Milk Intake (ml)</h3>";
   diaperChartWrap.innerHTML = "<h3>7-Day Diaper Changes</h3>";
-
-  const weeklyData = await fetchPast7Days();
   const hasData = weeklyData.some(d => d.entries && d.entries.length > 0);
+  const failedDayCount = weeklyData.filter((day) => day.loadFailed).length;
 
   if (!hasData) {
-    const msg1 = document.createElement("div"); msg1.className = "empty-chart-text"; msg1.textContent = "No data available";
+    const msg1 = document.createElement("div");
+    msg1.className = "empty-chart-text";
+    msg1.textContent = failedDayCount
+      ? "Couldn't load saved entries. Check your connection and try again."
+      : "No data available";
     heatmapWrap.appendChild(msg1.cloneNode(true));
     milkChartWrap.appendChild(msg1.cloneNode(true));
     diaperChartWrap.appendChild(msg1.cloneNode(true));
     return;
+  }
+
+  if (failedDayCount) {
+    const warning = document.createElement("div");
+    warning.className = "insight-load-warning";
+    warning.textContent = `${failedDayCount} ${failedDayCount === 1 ? "day" : "days"} couldn't be refreshed; showing cached data where available.`;
+    heatmapWrap.appendChild(warning);
   }
 
   renderHeatmap(weeklyData[6]); // Today
