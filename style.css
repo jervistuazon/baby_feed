@@ -686,6 +686,7 @@ main {
   border: 1px solid rgba(239, 127, 163, 0.12);
   box-shadow: 0 14px 34px rgba(132, 93, 122, 0.08);
   scroll-margin-bottom: calc(102px + env(safe-area-inset-bottom));
+  touch-action: pan-y;
   transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 
@@ -1323,10 +1324,32 @@ body.modal-open {
 
   .timeline-entry {
     min-height: 64px;
-    grid-template-columns: 78px auto minmax(0, 1fr) auto;
-    gap: 7px;
+    grid-template-columns: max-content minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 7px;
+    row-gap: 5px;
     padding: 9px 10px;
     border-radius: 12px;
+  }
+
+  .entry-time {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .entry-content {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .entry-icons {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .entry-meta {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
 
   .entry-time strong {
@@ -1349,6 +1372,11 @@ body.modal-open {
   }
 
   .entry-content span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
     font-size: 0.8rem;
   }
 
@@ -1473,18 +1501,8 @@ body.modal-open {
     font-weight: 560;
   }
 
-  .timeline-entry {
-    grid-template-columns: 70px minmax(0, 1fr) auto;
-    gap: 6px;
-  }
-
   .entry-icons {
-    grid-column: 2;
     gap: 5px;
-  }
-
-  .entry-content {
-    display: none;
   }
 
   .activity-badge {
@@ -1498,7 +1516,6 @@ body.modal-open {
   }
 
   .entry-meta {
-    grid-column: 3;
     gap: 6px;
   }
 
@@ -1623,12 +1640,13 @@ body.modal-open {
 }
 .insight-chart-wrap svg {
   width: 100%;
-  height: 120px;
+  height: auto;
+  aspect-ratio: 240 / 120;
   display: block;
   overflow: visible;
 }
 .insight-chart-wrap#heatmapWrap svg {
-  height: 60px; /* heatmap is shorter and wider */
+  aspect-ratio: 288 / 60;
 }
 .insight-chart-wrap svg text {
   font-family: inherit;

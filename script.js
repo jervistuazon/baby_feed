@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.07.20.2";
+const APP_VERSION = "2026.07.20.3";
 const FIREBASE_SDK_VERSION = window.ANYA_FIREBASE_SETTINGS?.sdkVersion || "12.14.0";
 const TRACKER_PREFIX = "anya-tracker-";
 const SLOT_MINUTES = 30;
@@ -996,6 +996,7 @@ function createEntryRow(entry) {
   const activities = getEntryActivities(entry);
   const primaryActivity = getPrimaryActivity(entry);
   const milkAmount = normalizeMilkAmount(entry.milkAmountMl);
+  let wasSwiped = false;
 
   row.type = "button";
   row.className = `timeline-entry ${primaryActivity.className.replace("-icon", "-entry")}`;
@@ -1040,6 +1041,11 @@ function createEntryRow(entry) {
 
   row.append(timeBlock, iconStrip, content, meta);
   row.addEventListener("click", () => {
+    if (wasSwiped) {
+      wasSwiped = false;
+      return;
+    }
+
     triggerEntryFeedback(row);
     openActivityModal(entry.id);
   });
@@ -1050,26 +1056,82 @@ function createEntryRow(entry) {
   const swipeActions = document.createElement("div");
   swipeActions.className = "swipe-actions";
   swipeActions.innerHTML = '<span class="swipe-action-left">Edit</span><span class="swipe-action-right">Delete</span>';
+  const leftAction = swipeActions.querySelector(".swipe-action-left");
+  const rightAction = swipeActions.querySelector(".swipe-action-right");
 
   wrapper.appendChild(swipeActions);
   wrapper.appendChild(row);
 
   let touchStartX = 0;
+  let touchStartY = 0;
   let currentX = 0;
+  let isHorizontalSwipe = false;
+  let isVerticalScroll = false;
+
+  const resetSwipeVisuals = () => {
+    row.style.transition = "transform 0.2s cubic-bezier(0.2, 0, 0, 1)";
+    row.style.transform = "translateX(0)";
+
+    if (leftAction && rightAction) {
+      leftAction.style.opacity = 0;
+      rightAction.style.opacity = 0;
+    }
+
+    currentX = 0;
+    isHorizontalSwipe = false;
+    isVerticalScroll = false;
+  };
 
   row.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) {
+      resetSwipeVisuals();
+      wasSwiped = false;
+      return;
+    }
+
     touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    currentX = 0;
+    wasSwiped = false;
+    isHorizontalSwipe = false;
+    isVerticalScroll = false;
     row.style.transition = "none";
   }, { passive: true });
 
   row.addEventListener("touchmove", (e) => {
-    currentX = e.touches[0].clientX - touchStartX;
+    if (e.touches.length !== 1) {
+      resetSwipeVisuals();
+      wasSwiped = false;
+      return;
+    }
+
+    const deltaX = e.touches[0].clientX - touchStartX;
+    const deltaY = e.touches[0].clientY - touchStartY;
+
+    if (!isHorizontalSwipe && !isVerticalScroll) {
+      if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) <= 10) {
+        return;
+      }
+
+      if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+        isVerticalScroll = true;
+        return;
+      }
+
+      isHorizontalSwipe = true;
+      wasSwiped = true;
+    }
+
+    if (!isHorizontalSwipe) {
+      return;
+    }
+
+    e.preventDefault();
+    currentX = deltaX;
     if (currentX > 80) currentX = 80;
     if (currentX < -80) currentX = -80;
     row.style.transform = `translateX(${currentX}px)`;
 
-    const leftAction = swipeActions.querySelector(".swipe-action-left");
-    const rightAction = swipeActions.querySelector(".swipe-action-right");
     if (leftAction && rightAction) {
       if (currentX > 0) {
         leftAction.style.opacity = Math.min(1, currentX / 40);
@@ -1082,25 +1144,26 @@ function createEntryRow(entry) {
         rightAction.style.opacity = 0;
       }
     }
-  });
+  }, { passive: false });
 
   row.addEventListener("touchend", () => {
-    row.style.transition = "transform 0.2s cubic-bezier(0.2, 0, 0, 1)";
     if (currentX < -60) {
       initiateDelete(entry.id);
     } else if (currentX > 60) {
       openActivityModal(entry.id);
     }
-    row.style.transform = "translateX(0)";
+    resetSwipeVisuals();
 
-    const leftAction = swipeActions.querySelector(".swipe-action-left");
-    const rightAction = swipeActions.querySelector(".swipe-action-right");
-    if (leftAction && rightAction) {
-      leftAction.style.opacity = 0;
-      rightAction.style.opacity = 0;
+    if (wasSwiped) {
+      window.setTimeout(() => {
+        wasSwiped = false;
+      }, 500);
     }
+  });
 
-    currentX = 0;
+  row.addEventListener("touchcancel", () => {
+    resetSwipeVisuals();
+    wasSwiped = false;
   });
 
   return wrapper;
